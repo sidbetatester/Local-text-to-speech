@@ -156,8 +156,8 @@
         .field select, .field input[type="text"] { width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px; background: white; min-width: 0; }
         .field select:focus, .field input[type="text"]:focus { outline: none; border-color: var(--primary); }
         .slider-row { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; }
-        .slider-row input[type="range"] { flex: 1; height: 5px; border-radius: 3px; background: var(--border); -webkit-appearance: none; min-width: 0; }
-        .slider-row input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .slider-row input[type="range"] { flex: 1; height: 5px; border-radius: 3px; background: var(--border); appearance: none; -webkit-appearance: none; min-width: 0; }
+        .slider-row input[type="range"]::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
         .slider-lbl { font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
         .full-width { grid-column: 1 / -1; }
 
@@ -347,6 +347,7 @@
     let wordMap = [];
     let currentText = '';
     let lastWordIndex = -1;
+    let pausedWordIndex = -1; // iOS-specific: save resume position
     let history = [];
     let settings = {};
     let plainTextMode = false;
@@ -789,19 +790,45 @@
 
     function togglePause() {
         if (!speaking) return;
-        
+
         const pauseBtn = $('pauseBtn');
-        
+
         if (paused) {
-            synth.resume();
+            // iOS-specific: resume from saved position if used custom pause
+            if (isIOS && pausedWordIndex >= 0 && wordMap.length > 0) {
+                resumeFromPausedPosition();
+            } else {
+                synth.resume();
+            }
             paused = false;
+            pausedWordIndex = -1; // reset
             setStatus('speaking', 'Speaking');
             if (pauseBtn) pauseBtn.textContent = '⏸';
         } else {
-            synth.pause();
-            paused = true;
-            setStatus('paused', 'Paused');
-            if (pauseBtn) pauseBtn.textContent = '▶';
+            // iOS-specific: use position-based pause instead of unreliable synth.pause()
+            if (isIOS && lastWordIndex >= 0) {
+                // Save current position and stop speech
+                pausedWordIndex = lastWordIndex;
+                synth.cancel();
+                paused = true;
+                setStatus('paused', 'Paused');
+
+                // Update progress to show paused position
+                const total = wordMap.length;
+                const pct = total > 0 ? ((pausedWordIndex + 1) / total) * 100 : 0;
+                if (prog) prog.style.width = Math.min(pct, 100) + '%';
+
+                const posEl = $('pos');
+                if (posEl) posEl.textContent = `${pausedWordIndex + 1}/${total} (paused)`;
+
+                if (pauseBtn) pauseBtn.textContent = '▶';
+            } else {
+                // Use default behavior on other platforms
+                synth.pause();
+                paused = true;
+                setStatus('paused', 'Paused');
+                if (pauseBtn) pauseBtn.textContent = '▶';
+            }
         }
     }
 
