@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Local-Text-to-Speech & Voice Input by Sid</title>
+    <title>Local-Text-to-Speech by Sid</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -35,9 +35,6 @@
         .btn-play:hover:not(:disabled) { background: var(--primary-hover); }
         .btn-icon { width: 40px; height: 40px; padding: 0; }
         .btn-stop { background: var(--danger); color: white; }
-        
-        .btn-mic-on { background: #ef4444 !important; animation: pulse-mic 1s infinite; }
-        @keyframes pulse-mic { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
 
         .progress-area { flex: 1; min-width: 80px; }
         .progress-bar { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
@@ -214,8 +211,7 @@
         <div class="header-row">
             <div class="header-title">🔊 Local-Text-to-Speech <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted)">by Sid</span></div>
             <div class="badges">
-                <span class="badge badge-green" title="Text-to-Speech is 100% local">TTS 100% Local</span>
-                <span class="badge" id="sttBadge" style="background:#fef3c7;color:#92400e;" title="Voice Input disabled by default for privacy">STT Off</span>
+                <span class="badge badge-green">Local</span>
                 <span class="badge badge-blue" id="platform">-</span>
             </div>
         </div>
@@ -224,7 +220,6 @@
             <button class="btn btn-icon btn-stop" id="stopBtn" disabled title="Stop (Esc)">⏹</button>
             <button class="btn btn-icon" id="rewindBtn" title="Rewind 5 words (←)" style="background:var(--secondary);color:white;">⏪</button>
             <button class="btn btn-icon" id="forwardBtn" title="Skip 5 words (→)" style="background:var(--secondary);color:white;">⏩</button>
-            <button class="btn btn-icon" id="micBtn" title="Voice input (M)" style="background:#10b981;color:white;display:none;">🎤</button>
             <div class="progress-area">
                 <div class="progress-bar"><div class="progress-fill" id="prog"></div></div>
                 <div class="progress-text"><span id="pos">Ready</span><span id="eta"></span></div>
@@ -294,9 +289,8 @@
                 
                 <div class="voice-grid">
                     <div class="field full-width">
-                        <label>Voice <span id="voiceCount" class="voice-count"></span> <button id="refreshVoices" style="background:none;border:none;cursor:pointer;font-size:0.8rem;padding:2px 4px;" title="Refresh voice list">🔄</button></label>
-                        <select id="voice" style="font-size:0.85rem;"></select>
-                        <div id="voiceInfo" style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;"></div>
+                        <label>Voice <span id="voiceCount" class="voice-count"></span></label>
+                        <select id="voice"></select>
                     </div>
                     <div class="field">
                         <label>Rate: <span id="rateVal">1.0x</span></label>
@@ -324,117 +318,6 @@
                     </div>
                 </div>
                 <details class="tip"><summary>💡 Better voices</summary><ul><li><b>Win:</b> Settings → Speech</li><li><b>Mac:</b> System Settings → Accessibility → Spoken Content</li><li><b>iOS:</b> Settings → Accessibility → Spoken Content</li></ul></details>
-            </div>
-
-            <div class="card" id="sttCard">
-                <div class="collapse-head" id="sttHead">
-                    <div class="card-title" style="margin:0">🎤 Voice Input (Speech-to-Text)</div>
-                    <svg class="collapse-icon" id="sttIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </div>
-                <div class="collapse-body" id="sttBody">
-                    
-                    <!-- Privacy Warning (shown when STT is disabled) -->
-                    <div id="sttPrivacyWarning">
-                        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;margin-bottom:12px;">
-                            <div style="font-weight:600;color:#991b1b;margin-bottom:8px;font-size:0.85rem;">⚠️ Privacy Notice</div>
-                            <p style="font-size:0.75rem;color:#7f1d1d;margin-bottom:8px;">
-                                Voice Input uses your browser's speech recognition, which <b>may send your voice to cloud servers</b> (Google, Apple, or Microsoft) unless you enable offline mode in your device settings.
-                            </p>
-                            <p style="font-size:0.75rem;color:#7f1d1d;margin-bottom:12px;">
-                                This is different from Text-to-Speech which is <b>100% local</b>.
-                            </p>
-                            
-                            <details style="margin-bottom:12px;">
-                                <summary style="font-size:0.75rem;cursor:pointer;color:#991b1b;font-weight:500;">📋 How to enable offline/local voice recognition</summary>
-                                <div style="margin-top:8px;font-size:0.7rem;color:#7f1d1d;">
-                                    <p style="margin-bottom:6px;"><b>📱 iPhone/iPad:</b> Settings → General → Keyboard → Dictation → Enable "On-Device Dictation"</p>
-                                    <p style="margin-bottom:6px;"><b>🍎 Mac:</b> System Settings → Keyboard → Dictation → Select "On-Device Only"</p>
-                                    <p style="margin-bottom:6px;"><b>🤖 Android:</b> Settings → Google → Voice → Offline Speech Recognition → Download your language</p>
-                                    <p style="margin-bottom:6px;"><b>🪟 Windows 11:</b> Settings → Privacy & Security → Speech → Turn OFF "Online speech recognition"</p>
-                                    <p><b>🪟 Windows 10:</b> Use built-in "Windows Speech Recognition" (works offline)</p>
-                                </div>
-                            </details>
-                            
-                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                                <button id="sttEnableBtn" class="btn" style="background:#dc2626;color:white;font-size:0.75rem;padding:8px 16px;">
-                                    I understand, enable Voice Input
-                                </button>
-                                <button id="sttEnableOfflineBtn" class="btn" style="background:#16a34a;color:white;font-size:0.75rem;padding:8px 16px;">
-                                    ✅ I've enabled offline mode, proceed
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- STT Controls (hidden until enabled) -->
-                    <div id="sttControls" style="display:none;">
-                        <div id="sttModeIndicator" style="background:#fefce8;border:1px solid #fde047;border-radius:6px;padding:8px;margin-bottom:10px;font-size:0.75rem;">
-                            <span id="sttModeText">⚠️ Voice may be processed in cloud. <a href="#" id="sttShowOfflineGuide" style="color:#0066cc;">Enable offline mode</a> for local processing.</span>
-                        </div>
-                        
-                        <div class="stt-status" id="sttStatus" style="padding:8px 0;font-size:0.85rem;color:var(--text-muted);">
-                            Click 🎤 or press <kbd style="background:#e2e8f0;padding:2px 6px;border-radius:3px;">M</kbd> to start voice input
-                        </div>
-                        
-                        <button id="sttTestBtn" class="btn" style="background:#3b82f6;color:white;font-size:0.75rem;padding:6px 12px;margin-bottom:10px;">
-                            🔊 Test: Click then say "Hello"
-                        </button>
-                        
-                        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px;margin-bottom:10px;font-size:0.75rem;">
-                            📍 Text will appear in the <b>Edit</b> tab as you speak
-                        </div>
-                        
-                        <div id="sttOutput" style="background:#fefce8;border:1px solid #fde047;border-radius:6px;padding:8px;margin-bottom:10px;font-size:0.8rem;min-height:40px;display:none;">
-                            <b>Last recognized:</b> <span id="sttLastText">-</span>
-                        </div>
-                        
-                        <div id="micLevel" style="display:none;margin-bottom:10px;">
-                            <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px;">🎚️ Microphone level:</div>
-                            <div style="background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;">
-                                <div id="micLevelBar" style="background:#22c55e;height:100%;width:0%;transition:width 0.1s;"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="stt-options" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-                            <label style="font-size:0.75rem;display:flex;align-items:center;gap:4px;" title="Keep listening until you stop (good for long dictation)">
-                                <span class="toggle"><input type="checkbox" id="sttContinuous" checked><span></span></span>
-                                Keep listening
-                            </label>
-                            <label style="font-size:0.75rem;display:flex;align-items:center;gap:4px;">
-                                Language:
-                                <select id="sttLang" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:0.75rem;">
-                                    <option value="">Auto-detect</option>
-                                    <option value="en-US">English (US)</option>
-                                    <option value="en-GB">English (UK)</option>
-                                    <option value="es-ES">Spanish</option>
-                                    <option value="fr-FR">French</option>
-                                    <option value="de-DE">German</option>
-                                    <option value="it-IT">Italian</option>
-                                    <option value="pt-BR">Portuguese</option>
-                                    <option value="zh-CN">Chinese</option>
-                                    <option value="ja-JP">Japanese</option>
-                                    <option value="ko-KR">Korean</option>
-                                    <option value="hi-IN">Hindi</option>
-                                    <option value="ar-SA">Arabic</option>
-                                </select>
-                            </label>
-                        </div>
-                        
-                        <details class="tip" style="margin-top:8px;">
-                            <summary>💡 Tips if not detecting speech</summary>
-                            <ul style="margin:8px 0 0 16px;font-size:0.7rem;">
-                                <li>Speak clearly and at normal volume</li>
-                                <li>Get closer to your microphone (6-12 inches)</li>
-                                <li>Reduce background noise</li>
-                                <li>Check browser is using correct microphone (click 🔒 in address bar)</li>
-                            </ul>
-                        </details>
-                        
-                        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
-                            <button id="sttDisableBtn" class="btn-sm" style="color:#dc2626;">Disable Voice Input</button>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <div class="card">
@@ -474,7 +357,6 @@
     let utterance = null;
     let speaking = false;
     let paused = false;
-    let pauseIntended = false; // Flag to prevent onend from resetting state when pausing
     let wordMap = [];
     let currentText = '';
     let lastWordIndex = -1;
@@ -566,78 +448,11 @@
     }
 
     // === VOICES ===
-    
-    // Human-readable locale names
-    const localeNames = {
-        'en-US': 'English (US)',
-        'en-GB': 'English (UK)',
-        'en-AU': 'English (Australia)',
-        'en-IN': 'English (India)',
-        'en-IE': 'English (Ireland)',
-        'en-ZA': 'English (South Africa)',
-        'en-NZ': 'English (New Zealand)',
-        'en-CA': 'English (Canada)',
-        'es-ES': 'Spanish (Spain)',
-        'es-MX': 'Spanish (Mexico)',
-        'es-US': 'Spanish (US)',
-        'es-AR': 'Spanish (Argentina)',
-        'fr-FR': 'French (France)',
-        'fr-CA': 'French (Canada)',
-        'de-DE': 'German',
-        'de-AT': 'German (Austria)',
-        'it-IT': 'Italian',
-        'pt-BR': 'Portuguese (Brazil)',
-        'pt-PT': 'Portuguese (Portugal)',
-        'zh-CN': 'Chinese (Simplified)',
-        'zh-TW': 'Chinese (Traditional)',
-        'zh-HK': 'Chinese (Hong Kong)',
-        'ja-JP': 'Japanese',
-        'ko-KR': 'Korean',
-        'hi-IN': 'Hindi',
-        'ar-SA': 'Arabic (Saudi)',
-        'ar-AE': 'Arabic (UAE)',
-        'ru-RU': 'Russian',
-        'nl-NL': 'Dutch',
-        'nl-BE': 'Dutch (Belgium)',
-        'sv-SE': 'Swedish',
-        'da-DK': 'Danish',
-        'no-NO': 'Norwegian',
-        'fi-FI': 'Finnish',
-        'pl-PL': 'Polish',
-        'tr-TR': 'Turkish',
-        'he-IL': 'Hebrew',
-        'th-TH': 'Thai',
-        'vi-VN': 'Vietnamese',
-        'id-ID': 'Indonesian',
-        'ms-MY': 'Malay',
-        'cs-CZ': 'Czech',
-        'el-GR': 'Greek',
-        'hu-HU': 'Hungarian',
-        'ro-RO': 'Romanian',
-        'sk-SK': 'Slovak',
-        'uk-UA': 'Ukrainian',
-        'bg-BG': 'Bulgarian',
-        'hr-HR': 'Croatian',
-        'ca-ES': 'Catalan'
-    };
-    
-    function getLocaleName(langCode) {
-        if (!langCode) return 'Unknown';
-        // Try exact match first
-        if (localeNames[langCode]) return localeNames[langCode];
-        // Try without region
-        const base = langCode.split('-')[0];
-        const match = Object.entries(localeNames).find(([k]) => k.startsWith(base + '-'));
-        if (match) return match[1].split(' (')[0]; // Return just the language name
-        return langCode; // Fallback to code
-    }
-    
     function loadVoices() {
         try {
             voices = synth.getVoices() || [];
             if (voices.length === 0) return;
             
-            // Sort: Premium/Enhanced first, then by language, then by name
             voices.sort((a, b) => {
                 const scoreVoice = (v) => {
                     if (!v || !v.name) return 0;
@@ -650,25 +465,12 @@
                     if (v.default) s += 10;
                     return s;
                 };
-                const scoreDiff = scoreVoice(b) - scoreVoice(a);
-                if (scoreDiff !== 0) return scoreDiff;
-                // Then sort by language
-                const langA = (a.lang || '').toLowerCase();
-                const langB = (b.lang || '').toLowerCase();
-                if (langA !== langB) return langA.localeCompare(langB);
-                // Then by name
-                return (a.name || '').localeCompare(b.name || '');
+                return scoreVoice(b) - scoreVoice(a);
             });
             
-            // Build language filter with readable names
             const langs = [...new Set(voices.map(v => v.lang).filter(Boolean))].sort();
             if (langSelect) {
-                langSelect.innerHTML = '<option value="">All Languages (' + voices.length + ' voices)</option>' + 
-                    langs.map(l => {
-                        const count = voices.filter(v => v.lang === l).length;
-                        const displayName = localeNames[l] || l;
-                        return `<option value="${l}">${displayName} (${count})</option>`;
-                    }).join('');
+                langSelect.innerHTML = '<option value="">All Languages</option>' + langs.map(l => `<option value="${l}">${l}</option>`).join('');
             }
             filterVoices();
         } catch(e) {
@@ -689,8 +491,7 @@
                 if (searchFilter) {
                     const name = (v.name || '').toLowerCase();
                     const lang = (v.lang || '').toLowerCase();
-                    const localeName = getLocaleName(v.lang).toLowerCase();
-                    if (!name.includes(searchFilter) && !lang.includes(searchFilter) && !localeName.includes(searchFilter)) {
+                    if (!name.includes(searchFilter) && !lang.includes(searchFilter)) {
                         return false;
                     }
                 }
@@ -701,22 +502,8 @@
                 if (!v) return '';
                 const origIdx = voices.indexOf(v);
                 const n = (v.name || '').toLowerCase();
-                
-                // Quality indicators
-                let quality = '';
-                if (n.includes('premium')) quality = ' ★★★';
-                else if (n.includes('enhanced') || n.includes('natural') || n.includes('neural')) quality = ' ★★';
-                else if (v.localService) quality = ' ★';
-                
-                // Language/locale display
-                const locale = v.lang || '';
-                const localeName = getLocaleName(locale);
-                
-                // Clean up voice name - remove redundant info
-                let displayName = v.name || 'Unknown';
-                // Some voices have locale in name already, some don't
-                
-                return `<option value="${origIdx}">${displayName} [${localeName}]${quality}</option>`;
+                let m = (n.includes('premium') || n.includes('enhanced') || n.includes('natural') || n.includes('neural')) ? ' ★★' : (v.localService ? ' ★' : '');
+                return `<option value="${origIdx}">${v.name || 'Unknown'}${m}</option>`;
             }).join('');
             
             const voiceCountEl = $('voiceCount');
@@ -730,26 +517,6 @@
                     voiceSelect.value = i;
                 }
             }
-            
-            // Update voice info display (defined later, so use try/catch)
-            try {
-                setTimeout(() => { 
-                    const voiceInfo = $('voiceInfo');
-                    if (voiceInfo && voiceSelect && voices.length > 0) {
-                        const voiceIdx = parseInt(voiceSelect.value);
-                        const voice = voices[voiceIdx];
-                        if (voice) {
-                            const locale = getLocaleName(voice.lang);
-                            const isLocal = voice.localService ? '✅ Local' : '☁️ Network';
-                            const n = voice.name.toLowerCase();
-                            const quality = n.includes('premium') ? '★★★ Premium' :
-                                           (n.includes('enhanced') || n.includes('natural') || n.includes('neural')) ? '★★ Enhanced' :
-                                           voice.localService ? '★ Standard' : 'Standard';
-                            voiceInfo.innerHTML = `<b>${locale}</b> • ${quality} • ${isLocal}`;
-                        }
-                    }
-                }, 100);
-            } catch(e) {}
         } catch(e) {
             console.error('Error filtering voices:', e);
         }
@@ -759,12 +526,8 @@
         synth.onvoiceschanged = loadVoices;
     }
     loadVoices();
-    // Apple devices sometimes need multiple attempts to load all voices
     setTimeout(loadVoices, 200);
-    setTimeout(loadVoices, 500);
     setTimeout(loadVoices, 1000);
-    setTimeout(loadVoices, 2000);
-    setTimeout(loadVoices, 5000); // Final attempt for slow devices
 
     // === SETTINGS ===
     if (settings.rate && rateSlider) rateSlider.value = settings.rate;
@@ -1165,29 +928,19 @@
             return;
         }
         
-        // 2. If paused → Resume by restarting from current word (native resume is buggy)
+        // 2. If paused → Resume
         if (speaking && paused) {
-            // Don't use synth.resume() - it causes sync issues
-            // Instead, restart from the current word position
-            if (lastWordIndex >= 0 && wordMap.length > 0) {
-                paused = false;
-                speakFromWord(lastWordIndex);
-                setStatus('speaking', 'Resuming');
-            } else {
-                // Fallback: restart from beginning
-                paused = false;
-                speakWithMode(null, 'full');
-            }
+            synth.resume();
+            paused = false;
+            setStatus('speaking', 'Resuming');
             updateBtns();
             return;
         }
         
         // 3. If speaking → Pause
         if (speaking && !paused) {
-            pauseIntended = true; // Set flag before cancel to prevent onend from resetting
-            synth.cancel(); // Use cancel instead of pause for cleaner state
+            synth.pause();
             paused = true;
-            speaking = true; // Keep speaking flag true so we know to resume
             setStatus('paused', 'Paused');
             updateBtns();
             return;
@@ -1251,12 +1004,6 @@
         };
         
         utterance.onend = () => {
-            // If we intentionally paused, don't reset state
-            if (pauseIntended) {
-                pauseIntended = false;
-                return;
-            }
-            
             speaking = false;
             paused = false;
             if (reader && (mode === 'full' || mode === 'from-word')) {
@@ -1299,7 +1046,6 @@
     }
 
     function stop() {
-        pauseIntended = false; // Reset flag
         synth.cancel();
         speaking = false;
         paused = false;
@@ -1388,12 +1134,6 @@
         };
         
         utterance.onend = () => {
-            // If we intentionally paused, don't reset state
-            if (pauseIntended) {
-                pauseIntended = false;
-                return;
-            }
-            
             speaking = false;
             if (reader) {
                 reader.querySelectorAll('.w').forEach(el => { 
@@ -1470,12 +1210,6 @@
         };
         
         utterance.onend = () => {
-            // If we intentionally paused, don't reset state
-            if (pauseIntended) {
-                pauseIntended = false;
-                return;
-            }
-            
             speaking = false;
             if (reader) {
                 reader.querySelectorAll('.w').forEach(el => { 
@@ -1527,9 +1261,6 @@
             if (speaking && !paused) {
                 playPauseBtn.innerHTML = '⏸ Pause';
                 playPauseBtn.style.background = 'var(--warning)';
-            } else if (speaking && paused) {
-                playPauseBtn.innerHTML = '▶ Resume';
-                playPauseBtn.style.background = 'var(--success)';
             } else {
                 playPauseBtn.innerHTML = '▶ Play';
                 playPauseBtn.style.background = 'var(--primary)';
@@ -1551,484 +1282,6 @@
     if (stopBtn) stopBtn.addEventListener('click', stop);
     if (rewindBtn) rewindBtn.addEventListener('click', () => skipWords(-5));
     if (forwardBtn) forwardBtn.addEventListener('click', () => skipWords(5));
-    
-    // === SPEECH TO TEXT ===
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition = null;
-    let isListening = false;
-    let sttEnabled = false;
-    let sttOfflineMode = false;
-    
-    const micBtn = $('micBtn');
-    const sttStatus = $('sttStatus');
-    const sttContinuous = $('sttContinuous');
-    const sttLang = $('sttLang');
-    const sttPrivacyWarning = $('sttPrivacyWarning');
-    const sttControls = $('sttControls');
-    const sttEnableBtn = $('sttEnableBtn');
-    const sttEnableOfflineBtn = $('sttEnableOfflineBtn');
-    const sttDisableBtn = $('sttDisableBtn');
-    const sttModeIndicator = $('sttModeIndicator');
-    const sttModeText = $('sttModeText');
-    const sttShowOfflineGuide = $('sttShowOfflineGuide');
-    
-    // Load STT enabled state from localStorage
-    try {
-        const sttState = JSON.parse(localStorage.getItem('sttState') || '{}');
-        sttEnabled = sttState.enabled || false;
-        sttOfflineMode = sttState.offlineMode || false;
-    } catch(e) {}
-    
-    function updateSttUI() {
-        const sttBadge = $('sttBadge');
-        
-        if (sttEnabled) {
-            if (sttPrivacyWarning) sttPrivacyWarning.style.display = 'none';
-            if (sttControls) sttControls.style.display = 'block';
-            if (micBtn) micBtn.style.display = '';
-            
-            // Update badge
-            if (sttBadge) {
-                if (sttOfflineMode) {
-                    sttBadge.style.background = '#dcfce7';
-                    sttBadge.style.color = '#166534';
-                    sttBadge.textContent = 'STT Local';
-                    sttBadge.title = 'Voice Input enabled with offline mode (local processing)';
-                } else {
-                    sttBadge.style.background = '#fef3c7';
-                    sttBadge.style.color = '#92400e';
-                    sttBadge.textContent = 'STT Cloud';
-                    sttBadge.title = 'Voice Input enabled (may use cloud processing)';
-                }
-            }
-            
-            // Update mode indicator
-            if (sttModeIndicator && sttModeText) {
-                if (sttOfflineMode) {
-                    sttModeIndicator.style.background = '#f0fdf4';
-                    sttModeIndicator.style.borderColor = '#86efac';
-                    sttModeText.innerHTML = '✅ Offline mode enabled - voice processed locally on your device.';
-                } else {
-                    sttModeIndicator.style.background = '#fefce8';
-                    sttModeIndicator.style.borderColor = '#fde047';
-                    sttModeText.innerHTML = '⚠️ Voice may be processed in cloud. <a href="#" id="sttShowOfflineGuide" style="color:#0066cc;">Enable offline mode</a> for local processing.';
-                    
-                    // Re-attach click handler
-                    const newGuideLink = $('sttShowOfflineGuide');
-                    if (newGuideLink) {
-                        newGuideLink.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            showOfflineGuide();
-                        });
-                    }
-                }
-            }
-        } else {
-            if (sttPrivacyWarning) sttPrivacyWarning.style.display = 'block';
-            if (sttControls) sttControls.style.display = 'none';
-            if (micBtn) micBtn.style.display = 'none';
-            
-            // Update badge
-            if (sttBadge) {
-                sttBadge.style.background = '#f3f4f6';
-                sttBadge.style.color = '#6b7280';
-                sttBadge.textContent = 'STT Off';
-                sttBadge.title = 'Voice Input disabled for privacy';
-            }
-        }
-    }
-    
-    function enableStt(offlineMode) {
-        sttEnabled = true;
-        sttOfflineMode = offlineMode;
-        try {
-            localStorage.setItem('sttState', JSON.stringify({ enabled: true, offlineMode: offlineMode }));
-        } catch(e) {}
-        updateSttUI();
-    }
-    
-    function disableStt() {
-        sttEnabled = false;
-        sttOfflineMode = false;
-        stopListening();
-        try {
-            localStorage.setItem('sttState', JSON.stringify({ enabled: false, offlineMode: false }));
-        } catch(e) {}
-        updateSttUI();
-    }
-    
-    function showOfflineGuide() {
-        alert('To enable offline voice recognition:\n\n' +
-            '📱 iPhone/iPad: Settings → General → Keyboard → Dictation → "On-Device Dictation"\n\n' +
-            '🍎 Mac: System Settings → Keyboard → Dictation → "On-Device Only"\n\n' +
-            '🤖 Android: Settings → Google → Voice → Offline Speech Recognition\n\n' +
-            '🪟 Windows 11: Settings → Privacy → Speech → Turn OFF "Online speech recognition"\n\n' +
-            '🪟 Windows 10: Use built-in "Windows Speech Recognition"');
-    }
-    
-    // Initialize UI
-    updateSttUI();
-    
-    // Button handlers
-    if (sttEnableBtn) {
-        sttEnableBtn.addEventListener('click', () => enableStt(false));
-    }
-    if (sttEnableOfflineBtn) {
-        sttEnableOfflineBtn.addEventListener('click', () => enableStt(true));
-    }
-    if (sttDisableBtn) {
-        sttDisableBtn.addEventListener('click', disableStt);
-    }
-    if (sttShowOfflineGuide) {
-        sttShowOfflineGuide.addEventListener('click', (e) => {
-            e.preventDefault();
-            showOfflineGuide();
-        });
-    }
-    
-    if (SpeechRecognition) {
-        recognition = new SpeechRecognition();
-        recognition.interimResults = true;
-        recognition.maxAlternatives = 1;
-        
-        recognition.onstart = () => {
-            isListening = true;
-            if (micBtn) micBtn.classList.add('btn-mic-on');
-            if (sttStatus) sttStatus.innerHTML = '🔴 Listening... <span style="color:var(--primary);">(speak now)</span>';
-            
-            // Start mic level monitor
-            startMicLevelMonitor();
-            
-            // Show debug output area
-            const sttOutput = $('sttOutput');
-            if (sttOutput) {
-                sttOutput.style.display = 'block';
-                const sttLastText = $('sttLastText');
-                if (sttLastText) sttLastText.textContent = 'Waiting for speech...';
-            }
-            
-            // Switch to Edit tab so user can see text being added
-            const editTab = $('editTab');
-            if (editTab) editTab.click();
-            
-            // Focus the text input
-            if (textInput) {
-                textInput.focus();
-            } else {
-                if (sttStatus) sttStatus.innerHTML = '❌ ERROR: Cannot find text editor element';
-            }
-        };
-        
-        recognition.onaudiostart = () => {
-            if (sttStatus) sttStatus.innerHTML = '🔴 <span style="animation:pulse-mic 1s infinite;">Microphone active</span> - speak now... (say "hello" to test)';
-        };
-        
-        recognition.onsoundstart = () => {
-            if (sttStatus) sttStatus.innerHTML = '🔴 Sound detected - listening...';
-        };
-        
-        recognition.onspeechstart = () => {
-            if (sttStatus) sttStatus.innerHTML = '🔴 Speech detected - processing...';
-        };
-        
-        recognition.onresult = (event) => {
-            
-            let interimTranscript = '';
-            let finalTranscript = '';
-            
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                const transcript = event.results[i][0].transcript;
-                
-                if (event.results[i].isFinal) {
-                    finalTranscript += transcript;
-                } else {
-                    interimTranscript += transcript;
-                }
-            }
-            
-            
-            // Show interim results in status
-            if (interimTranscript) {
-                if (sttStatus) sttStatus.innerHTML = '🔴 Hearing: "<span style="color:var(--primary);font-style:italic;">' + interimTranscript + '</span>"';
-            }
-            
-            // Insert final transcript into editor
-            if (finalTranscript) {
-                
-                // Show in debug output
-                const sttOutput = $('sttOutput');
-                const sttLastText = $('sttLastText');
-                if (sttOutput) sttOutput.style.display = 'block';
-                if (sttLastText) sttLastText.textContent = finalTranscript;
-                
-                // Try to get textInput again in case it wasn't ready
-                const editor = $('textInput');
-                
-                if (editor) {
-                    // Get current content
-                    const currentText = editor.innerText || '';
-                    
-                    const needsSpace = currentText.length > 0 && 
-                                       !currentText.endsWith(' ') && 
-                                       !currentText.endsWith('\n') &&
-                                       !finalTranscript.startsWith(' ');
-                    
-                    // Check if it's placeholder text
-                    const isPlaceholder = currentText.trim() === '' || 
-                                          currentText.includes('Enter or paste text here') ||
-                                          currentText.includes('Enter text');
-                    
-                    if (isPlaceholder) {
-                        editor.innerHTML = '';
-                        editor.innerText = finalTranscript;
-                    } else {
-                        editor.innerText = currentText + (needsSpace ? ' ' : '') + finalTranscript;
-                    }
-                    
-                    
-                    // Scroll to bottom of text input
-                    editor.scrollTop = editor.scrollHeight;
-                    
-                    // Update stats
-                    if (typeof updateStats === 'function') updateStats();
-                    
-                    if (sttStatus) sttStatus.innerHTML = '🔴 ✅ Added: "<span style="color:var(--success);">' + finalTranscript + '</span>" - keep speaking...';
-                } else {
-                    // Fallback: show the text in the status area so user at least sees it
-                    if (sttStatus) sttStatus.innerHTML = '⚠️ Text: "' + finalTranscript + '" (editor not found - copy this text manually)';
-                }
-            }
-        };
-        
-        recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
-            let errorMsg = 'Error: ' + event.error;
-            let shouldKeepListening = false;
-            
-            if (event.error === 'not-allowed') {
-                errorMsg = '❌ Microphone blocked. Click the 🔒 icon in your browser address bar to allow microphone.';
-            } else if (event.error === 'no-speech') {
-                // Don't stop - just show message
-                errorMsg = '⚠️ No speech detected. Speak louder or closer to mic...';
-                shouldKeepListening = true;
-            } else if (event.error === 'network') {
-                errorMsg = '⚠️ Network error. Enable offline mode in your device settings for local recognition.';
-            } else if (event.error === 'audio-capture') {
-                errorMsg = '❌ No microphone found. Please connect a microphone.';
-            } else if (event.error === 'aborted') {
-                errorMsg = 'Voice input stopped.';
-            }
-            
-            if (sttStatus) sttStatus.innerHTML = errorMsg;
-            
-            if (!shouldKeepListening) {
-                stopListening();
-            }
-            // Note: onend will handle restarting if continuous mode is on
-        };
-        
-        recognition.onend = () => {
-            
-            // Only restart if we're supposed to keep listening
-            if (isListening) {
-                const continuous = sttContinuous ? sttContinuous.checked : false;
-                if (continuous) {
-                    // Wait a bit then restart
-                    setTimeout(() => {
-                        if (isListening) {
-                            try {
-                                recognition.start();
-                                if (sttStatus) sttStatus.innerHTML = '🔴 Still listening... (speak now)';
-                            } catch(e) {
-                                // Don't retry again if it fails
-                            }
-                        }
-                    }, 300);
-                } else {
-                    // Non-continuous mode - stop
-                    stopListening();
-                }
-            }
-        };
-    } else {
-        // Browser doesn't support speech recognition
-        if (micBtn) {
-            micBtn.disabled = true;
-            micBtn.title = 'Speech recognition not supported in this browser';
-            micBtn.style.opacity = '0.5';
-        }
-        if (sttStatus) {
-            sttStatus.innerHTML = '❌ Speech recognition not supported. Try Chrome, Edge, or Safari.';
-        }
-    }
-    
-    function startListening() {
-        if (!sttEnabled) {
-            // Open STT section if it's collapsed
-            const sttBody = $('sttBody');
-            const sttIcon = $('sttIcon');
-            if (sttBody && !sttBody.classList.contains('open')) {
-                sttBody.classList.add('open');
-                if (sttIcon) sttIcon.classList.add('open');
-            }
-            alert('Voice Input is disabled. Please enable it first by accepting the privacy notice.');
-            return;
-        }
-        
-        if (!recognition) {
-            alert('Speech recognition not supported in this browser. Try Chrome, Edge, or Safari.');
-            return;
-        }
-        
-        // Check if we're on file:// protocol (doesn't support microphone)
-        if (location.protocol === 'file:') {
-            if (sttStatus) sttStatus.innerHTML = '⚠️ Voice input does not work with file:// URLs. Please:<br>• Host this file on a local server, OR<br>• Open via localhost, OR<br>• Use a hosted version (GitHub Pages, etc.)';
-            alert('Voice input requires a web server.\n\nThe file:// protocol does not allow microphone access.\n\nOptions:\n1. Use a local server (python -m http.server)\n2. Open via localhost\n3. Host online (GitHub Pages, Netlify, etc.)');
-            return;
-        }
-        
-        // Check if we're on HTTPS (required for microphone in most browsers)
-        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-            if (sttStatus) sttStatus.innerHTML = '⚠️ Voice input may require HTTPS. If it fails, try hosting on HTTPS.';
-        }
-        
-        // Stop any TTS first
-        stop();
-        
-        // Set language if specified
-        const lang = sttLang ? sttLang.value : '';
-        recognition.lang = lang || navigator.language || 'en-US';
-        recognition.continuous = sttContinuous ? sttContinuous.checked : false;
-        
-        if (sttStatus) sttStatus.innerHTML = '🎤 Starting microphone...';
-        
-        try {
-            recognition.start();
-            isListening = true;
-        } catch(e) {
-            if (e.name === 'InvalidStateError') {
-                // Already running, stop and restart
-                recognition.stop();
-                setTimeout(() => {
-                    try { 
-                        recognition.start(); 
-                        isListening = true;
-                    } catch(e2) {
-                        if (sttStatus) sttStatus.innerHTML = '❌ Error: ' + e2.message;
-                    }
-                }, 100);
-            } else {
-                if (sttStatus) sttStatus.innerHTML = '❌ Error: ' + e.message;
-            }
-        }
-    }
-    
-    function stopListening() {
-        isListening = false;
-        if (recognition) {
-            try { recognition.stop(); } catch(e) {}
-        }
-        stopMicLevelMonitor();
-        if (micBtn) micBtn.classList.remove('btn-mic-on');
-        if (sttStatus) sttStatus.innerHTML = 'Click 🎤 or press <kbd style="background:#e2e8f0;padding:2px 6px;border-radius:3px;">M</kbd> to start voice input';
-    }
-    
-    function toggleListening() {
-        if (isListening) {
-            stopListening();
-        } else {
-            startListening();
-        }
-    }
-    
-    // Microphone level monitoring
-    let audioContext = null;
-    let analyser = null;
-    let micStream = null;
-    let levelAnimationFrame = null;
-    
-    async function startMicLevelMonitor() {
-        const micLevel = $('micLevel');
-        const micLevelBar = $('micLevelBar');
-        if (!micLevel || !micLevelBar) return;
-        
-        try {
-            micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            analyser.fftSize = 256;
-            
-            const source = audioContext.createMediaStreamSource(micStream);
-            source.connect(analyser);
-            
-            micLevel.style.display = 'block';
-            
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-            
-            function updateLevel() {
-                analyser.getByteFrequencyData(dataArray);
-                const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-                const level = Math.min(100, average * 1.5);
-                micLevelBar.style.width = level + '%';
-                
-                // Change color based on level
-                if (level < 10) {
-                    micLevelBar.style.background = '#ef4444'; // Red - too quiet
-                } else if (level < 30) {
-                    micLevelBar.style.background = '#f59e0b'; // Orange - low
-                } else {
-                    micLevelBar.style.background = '#22c55e'; // Green - good
-                }
-                
-                if (isListening) {
-                    levelAnimationFrame = requestAnimationFrame(updateLevel);
-                }
-            }
-            updateLevel();
-        } catch(e) {
-            console.error('Could not start mic level monitor:', e);
-        }
-    }
-    
-    function stopMicLevelMonitor() {
-        if (levelAnimationFrame) {
-            cancelAnimationFrame(levelAnimationFrame);
-            levelAnimationFrame = null;
-        }
-        if (micStream) {
-            micStream.getTracks().forEach(track => track.stop());
-            micStream = null;
-        }
-        if (audioContext) {
-            audioContext.close();
-            audioContext = null;
-        }
-        const micLevel = $('micLevel');
-        if (micLevel) micLevel.style.display = 'none';
-    }
-    
-    if (micBtn) micBtn.addEventListener('click', toggleListening);
-    
-    // Test button
-    const sttTestBtn = $('sttTestBtn');
-    if (sttTestBtn) {
-        sttTestBtn.addEventListener('click', () => {
-            if (sttStatus) sttStatus.innerHTML = '🎤 Test started - say "Hello" clearly...';
-            startListening();
-        });
-    }
-    
-    // STT collapse toggle
-    const sttHead = $('sttHead');
-    const sttBody = $('sttBody');
-    const sttIcon = $('sttIcon');
-    
-    if (sttHead) {
-        sttHead.addEventListener('click', () => { 
-            if (sttBody) sttBody.classList.toggle('open'); 
-            if (sttIcon) sttIcon.classList.toggle('open'); 
-        });
-    }
 
     if (clearBtn) {
         clearBtn.addEventListener('click', () => { 
@@ -2181,51 +1434,14 @@
             if (speaking && !paused) restartFromCurrent(); 
         });
     }
-    function updateVoiceInfo() {
-        const voiceInfo = $('voiceInfo');
-        if (!voiceInfo || !voiceSelect) return;
-        
-        const voiceIdx = parseInt(voiceSelect.value);
-        const voice = voices[voiceIdx];
-        
-        if (voice) {
-            const locale = getLocaleName(voice.lang);
-            const isLocal = voice.localService ? '✅ Local' : '☁️ Network';
-            const quality = voice.name.toLowerCase().includes('premium') ? '★★★ Premium' :
-                           (voice.name.toLowerCase().includes('enhanced') || 
-                            voice.name.toLowerCase().includes('natural') || 
-                            voice.name.toLowerCase().includes('neural')) ? '★★ Enhanced' :
-                           voice.localService ? '★ Standard' : 'Standard';
-            
-            voiceInfo.innerHTML = `<b>${locale}</b> • ${quality} • ${isLocal}`;
-        } else {
-            voiceInfo.innerHTML = '';
-        }
-    }
-    
     if (voiceSelect) {
         voiceSelect.addEventListener('change', () => { 
             saveSettings(); 
-            updateVoiceInfo();
             if (speaking && !paused) restartFromCurrent(); 
         });
-        // Initial update
-        setTimeout(updateVoiceInfo, 1500);
     }
     if (langSelect) {
         langSelect.addEventListener('change', filterVoices);
-    }
-    
-    // Refresh voices button
-    const refreshVoicesBtn = $('refreshVoices');
-    if (refreshVoicesBtn) {
-        refreshVoicesBtn.addEventListener('click', () => {
-            refreshVoicesBtn.textContent = '⏳';
-            loadVoices();
-            setTimeout(() => {
-                refreshVoicesBtn.textContent = '🔄';
-            }, 500);
-        });
     }
 
     const fontSizeEl = $('fontSize');
@@ -2391,10 +1607,7 @@
             e.preventDefault(); 
             togglePlayPause();
         }
-        if (e.code === 'Escape') {
-            stop();
-            stopListening();
-        }
+        if (e.code === 'Escape') stop();
         if (e.code === 'ArrowLeft') {
             e.preventDefault();
             skipWords(-5);
@@ -2402,20 +1615,6 @@
         if (e.code === 'ArrowRight') {
             e.preventDefault();
             skipWords(5);
-        }
-        if (e.code === 'KeyM') {
-            e.preventDefault();
-            if (sttEnabled) {
-                toggleListening();
-            } else {
-                // Open STT section to show privacy warning
-                const sttBody = $('sttBody');
-                const sttIcon = $('sttIcon');
-                if (sttBody) {
-                    sttBody.classList.add('open');
-                    if (sttIcon) sttIcon.classList.add('open');
-                }
-            }
         }
     });
 

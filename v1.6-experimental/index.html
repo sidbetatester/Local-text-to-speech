@@ -171,8 +171,10 @@
         .field select, .field input[type="text"] { width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px; background: white; min-width: 0; }
         .field select:focus, .field input[type="text"]:focus { outline: none; border-color: var(--primary); }
         .slider-row { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; }
-        .slider-row input[type="range"] { flex: 1; height: 5px; border-radius: 3px; background: var(--border); -webkit-appearance: none; min-width: 0; }
+        .slider-row input[type="range"] { flex: 1; height: 5px; border-radius: 3px; background: var(--border); -webkit-appearance: none; -moz-appearance: none; appearance: none; min-width: 0; }
         .slider-row input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .slider-row input[type="range"]::-moz-range-thumb { appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .slider-row input[type="range"]::-ms-thumb { appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
         .slider-lbl { font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
         .full-width { grid-column: 1 / -1; }
 
@@ -208,6 +210,7 @@
 
         @media (max-width: 500px) { :root { --header-height: 115px; } .header-title { font-size: 1rem; } }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
 </head>
 <body>
     <div class="fixed-header">
@@ -216,7 +219,11 @@
             <div class="badges">
                 <span class="badge badge-green" title="Text-to-Speech is 100% local">TTS 100% Local</span>
                 <span class="badge" id="sttBadge" style="background:#fef3c7;color:#92400e;" title="Voice Input disabled by default for privacy">STT Off</span>
-                <span class="badge badge-blue" id="platform">-</span>
+                                <span class="badge badge-blue" id="platform">-</span>
+                                <label title="Private Mode" style="display:flex;align-items:center;gap:6px;font-size:0.7rem;margin-left:8px;">
+                                    <input type="checkbox" id="privateModeToggle" style="width:14px;height:14px;">
+                                    Private
+                                </label>
             </div>
         </div>
         <div class="controls-row">
@@ -290,6 +297,11 @@
                 <div class="voice-search-row">
                     <input type="text" id="voiceSearch" placeholder="🔍 Search voices..." autocomplete="off">
                     <select id="lang"><option value="">All Languages</option></select>
+                    <label title="Show only local device voices" style="display:flex;align-items:center;gap:6px;margin-left:8px;font-size:0.85rem;">
+                        <input type="checkbox" id="localOnlyToggle" style="width:14px;height:14px;">
+                        Local only
+                        <span style="font-size:0.7rem;color:var(--text-muted);margin-left:6px;">(device-only — excludes cloud/provider voices)</span>
+                    </label>
                 </div>
                 
                 <div class="voice-grid">
@@ -446,6 +458,7 @@
                     <div class="hist-list" id="histList"><div class="empty">No history</div></div>
                     <div style="margin-top:8px;">
                         <button class="btn-sm" id="clearHistBtn">Clear All History</button>
+                        <button class="btn-sm" id="clearSensitiveBtn" style="margin-left:8px;background:#ef4444;color:white;">Clear Sensitive Data</button>
                     </div>
                 </div>
             </div>
@@ -481,6 +494,23 @@
     let history = [];
     let settings = {};
     let plainTextMode = false;
+    // Private mode (do not save full transcripts when enabled)
+    let privateMode = false;
+    // Voice privacy filter: show only localService voices when true
+    let voiceLocalOnly = false;
+
+    // Sanitize helper using DOMPurify (safe fallback returns plain text)
+    function sanitizeHtml(html) {
+        if (!html) return '';
+        if (window.DOMPurify && typeof DOMPurify.sanitize === 'function') {
+            return DOMPurify.sanitize(html, {
+                ALLOWED_TAGS: ['b','i','u','em','strong','p','br','ul','ol','li','h1','h2','h3','h4','h5','h6','blockquote','table','thead','tbody','tr','th','td','a','img'],
+                ALLOWED_ATTR: ['href','src','alt','title','target']
+            });
+        }
+        // Fallback: escape angle brackets to avoid HTML execution
+        return html.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
 
     function safeParseJSON(str, fallback) {
         try {
@@ -497,6 +527,11 @@
     settings = safeParseJSON(localStorage.getItem('ttsSettings'), {});
     if (typeof settings !== 'object' || settings === null) settings = {};
 
+    // Initialize privateMode from saved settings
+    try { privateMode = !!settings.privateMode; } catch(e) { privateMode = false; }
+    // Initialize voiceLocalOnly from saved settings
+    try { voiceLocalOnly = !!settings.voiceLocalOnly; } catch(e) { voiceLocalOnly = false; }
+
     function $(id) {
         return document.getElementById(id);
     }
@@ -510,6 +545,7 @@
     const volSlider = $('vol');
     const reader = $('reader');
     const prog = $('prog');
+    const localOnlyToggle = $('localOnlyToggle');
 
     // Platform
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -552,16 +588,34 @@
         });
     }
 
-    // Handle paste - preserve formatting or strip based on mode
+    // Handle paste - preserve formatting or strip based on mode. Sanitize HTML in rich mode.
     if (textInput) {
         textInput.addEventListener('paste', (e) => {
             if (plainTextMode) {
                 e.preventDefault();
                 const text = e.clipboardData.getData('text/plain');
                 document.execCommand('insertText', false, text);
+                setTimeout(updateStats, 0);
+                return;
             }
-            // Rich mode: let browser handle it naturally (preserves HTML)
-            setTimeout(updateStats, 0);
+
+            // Rich mode: intercept HTML if present and sanitize before inserting
+            const html = e.clipboardData.getData('text/html');
+            if (html) {
+                e.preventDefault();
+                const clean = sanitizeHtml(html);
+                document.execCommand('insertHTML', false, clean);
+                setTimeout(updateStats, 0);
+                return;
+            }
+
+            // Fallback to plain text
+            const text = e.clipboardData.getData('text/plain');
+            if (text) {
+                e.preventDefault();
+                document.execCommand('insertText', false, text);
+                setTimeout(updateStats, 0);
+            }
         });
     }
 
@@ -685,6 +739,8 @@
             
             filteredVoices = voices.filter(v => {
                 if (!v) return false;
+                // If local-only filter is enabled, exclude non-local voices
+                if (voiceLocalOnly && !v.localService) return false;
                 if (langFilter && v.lang !== langFilter) return false;
                 if (searchFilter) {
                     const name = (v.name || '').toLowerCase();
@@ -795,12 +851,14 @@
             const voiceIdx = voiceSelect ? voiceSelect.value : 0;
             const voice = voices[voiceIdx];
             const pauseLinesEl = $('pauseLines');
-            settings = { 
-                voiceName: voice ? voice.name : null, 
-                rate: rateSlider ? rateSlider.value : 1, 
-                pitch: pitchSlider ? pitchSlider.value : 1, 
+            settings = {
+                voiceName: voice ? voice.name : null,
+                rate: rateSlider ? rateSlider.value : 1,
+                pitch: pitchSlider ? pitchSlider.value : 1,
                 vol: volSlider ? volSlider.value : 1,
-                pauseLines: pauseLinesEl ? pauseLinesEl.checked : true
+                pauseLines: pauseLinesEl ? pauseLinesEl.checked : true,
+                privateMode: !!privateMode,
+                voiceLocalOnly: !!voiceLocalOnly
             };
             localStorage.setItem('ttsSettings', JSON.stringify(settings));
         } catch(e) {
@@ -899,6 +957,26 @@
         textInput.addEventListener('input', updateStats);
     }
     updateStats();
+
+    // Wire up Private Mode toggle (do not store full transcripts when enabled)
+    const privateModeToggle = $('privateModeToggle');
+    if (privateModeToggle) {
+        privateModeToggle.checked = !!privateMode;
+        privateModeToggle.addEventListener('change', () => {
+            privateMode = privateModeToggle.checked;
+            saveSettings();
+        });
+    }
+
+    // Wire up Local-only voice toggle
+    if (localOnlyToggle) {
+        localOnlyToggle.checked = !!voiceLocalOnly;
+        localOnlyToggle.addEventListener('change', () => {
+            voiceLocalOnly = !!localOnlyToggle.checked;
+            saveSettings();
+            filterVoices();
+        });
+    }
 
     // === TABS ===
     const tabEdit = $('tabEdit');
@@ -1694,7 +1772,13 @@
         recognition.onstart = () => {
             isListening = true;
             if (micBtn) micBtn.classList.add('btn-mic-on');
-            if (sttStatus) sttStatus.innerHTML = '🔴 Listening... <span style="color:var(--primary);">(speak now)</span>';
+            if (sttStatus) {
+                sttStatus.textContent = '🔴 Listening... ';
+                const sp = document.createElement('span');
+                sp.style.color = 'var(--primary)';
+                sp.textContent = '(speak now)';
+                sttStatus.appendChild(sp);
+            }
             
             // Start mic level monitor
             startMicLevelMonitor();
@@ -1720,15 +1804,22 @@
         };
         
         recognition.onaudiostart = () => {
-            if (sttStatus) sttStatus.innerHTML = '🔴 <span style="animation:pulse-mic 1s infinite;">Microphone active</span> - speak now... (say "hello" to test)';
+            if (sttStatus) {
+                sttStatus.textContent = '🔴 ';
+                const sp = document.createElement('span');
+                sp.style.animation = 'pulse-mic 1s infinite';
+                sp.textContent = 'Microphone active';
+                sttStatus.appendChild(sp);
+                sttStatus.appendChild(document.createTextNode(' - speak now... (say "hello" to test)'));
+            }
         };
         
         recognition.onsoundstart = () => {
-            if (sttStatus) sttStatus.innerHTML = '🔴 Sound detected - listening...';
+            if (sttStatus) sttStatus.textContent = '🔴 Sound detected - listening...';
         };
         
         recognition.onspeechstart = () => {
-            if (sttStatus) sttStatus.innerHTML = '🔴 Speech detected - processing...';
+            if (sttStatus) sttStatus.textContent = '🔴 Speech detected - processing...';
         };
         
         recognition.onresult = (event) => {
@@ -1747,9 +1838,17 @@
             }
             
             
-            // Show interim results in status
+            // Show interim results in status (sanitized)
             if (interimTranscript) {
-                if (sttStatus) sttStatus.innerHTML = '🔴 Hearing: "<span style="color:var(--primary);font-style:italic;">' + interimTranscript + '</span>"';
+                if (sttStatus) {
+                    sttStatus.textContent = '🔴 Hearing: "';
+                    const sp = document.createElement('span');
+                    sp.style.color = 'var(--primary)';
+                    sp.style.fontStyle = 'italic';
+                    sp.textContent = interimTranscript;
+                    sttStatus.appendChild(sp);
+                    sttStatus.appendChild(document.createTextNode('"'));
+                }
             }
             
             // Insert final transcript into editor
@@ -1792,10 +1891,17 @@
                     // Update stats
                     if (typeof updateStats === 'function') updateStats();
                     
-                    if (sttStatus) sttStatus.innerHTML = '🔴 ✅ Added: "<span style="color:var(--success);">' + finalTranscript + '</span>" - keep speaking...';
+                    if (sttStatus) {
+                        sttStatus.textContent = '🔴 ✅ Added: "';
+                        const sp2 = document.createElement('span');
+                        sp2.style.color = 'var(--success)';
+                        sp2.textContent = finalTranscript;
+                        sttStatus.appendChild(sp2);
+                        sttStatus.appendChild(document.createTextNode('" - keep speaking...'));
+                    }
                 } else {
                     // Fallback: show the text in the status area so user at least sees it
-                    if (sttStatus) sttStatus.innerHTML = '⚠️ Text: "' + finalTranscript + '" (editor not found - copy this text manually)';
+                    if (sttStatus) sttStatus.textContent = '⚠️ Text: "' + finalTranscript + '" (editor not found - copy this text manually)';
                 }
             }
         };
@@ -1819,7 +1925,7 @@
                 errorMsg = 'Voice input stopped.';
             }
             
-            if (sttStatus) sttStatus.innerHTML = errorMsg;
+            if (sttStatus) sttStatus.textContent = errorMsg;
             
             if (!shouldKeepListening) {
                 stopListening();
@@ -1838,7 +1944,7 @@
                         if (isListening) {
                             try {
                                 recognition.start();
-                                if (sttStatus) sttStatus.innerHTML = '🔴 Still listening... (speak now)';
+                                if (sttStatus) sttStatus.textContent = '🔴 Still listening... (speak now)';
                             } catch(e) {
                                 // Don't retry again if it fails
                             }
@@ -1900,7 +2006,7 @@
         recognition.lang = lang || navigator.language || 'en-US';
         recognition.continuous = sttContinuous ? sttContinuous.checked : false;
         
-        if (sttStatus) sttStatus.innerHTML = '🎤 Starting microphone...';
+        if (sttStatus) sttStatus.textContent = '🎤 Starting microphone...';
         
         try {
             recognition.start();
@@ -1930,7 +2036,7 @@
         }
         stopMicLevelMonitor();
         if (micBtn) micBtn.classList.remove('btn-mic-on');
-        if (sttStatus) sttStatus.innerHTML = 'Click 🎤 or press <kbd style="background:#e2e8f0;padding:2px 6px;border-radius:3px;">M</kbd> to start voice input';
+        if (sttStatus) sttStatus.textContent = 'Click 🎤 or press M to start voice input';
     }
     
     function toggleListening() {
@@ -2040,39 +2146,46 @@
     }
     
     if (pasteBtn) {
-        pasteBtn.addEventListener('click', async () => { 
-            try { 
-                // Try to get HTML first, fall back to plain text
-                const items = await navigator.clipboard.read();
-                for (const item of items) {
-                    if (item.types.includes('text/html') && !plainTextMode) {
-                        const blob = await item.getType('text/html');
-                        const html = await blob.text();
-                        if (textInput) {
-                            textInput.innerHTML = html;
-                            updateStats();
+        pasteBtn.addEventListener('click', async () => {
+            try {
+                // Prefer HTML when available and rich mode is enabled
+                let html = '';
+                if (navigator.clipboard && navigator.clipboard.read) {
+                    const items = await navigator.clipboard.read();
+                    for (const item of items) {
+                        if (item.types.includes('text/html') && !plainTextMode) {
+                            const blob = await item.getType('text/html');
+                            html = await blob.text();
+                            break;
                         }
-                        return;
                     }
                 }
-                // Fallback to plain text
+
+                if (html && !plainTextMode) {
+                    const clean = sanitizeHtml(html);
+                    if (textInput) {
+                        document.execCommand('insertHTML', false, clean);
+                        updateStats();
+                    }
+                    return;
+                }
+
                 const text = await navigator.clipboard.readText();
-                if (textInput) {
+                if (textInput && text) {
                     textInput.innerText = text;
                     updateStats();
                 }
-            } catch(e) { 
-                // Fallback for browsers without clipboard API
+            } catch (e) {
                 try {
                     const text = await navigator.clipboard.readText();
-                    if (textInput) {
+                    if (textInput && text) {
                         textInput.innerText = text;
                         updateStats();
                     }
-                } catch(e2) {
-                    alert('Use Ctrl+V / Cmd+V to paste'); 
+                } catch (e2) {
+                    alert('Use Ctrl+V / Cmd+V to paste');
                 }
-            } 
+            }
         });
     }
     
@@ -2129,27 +2242,33 @@
             let content = e.target ? e.target.result : '';
             const fileName = file.name.toLowerCase();
             
-            if (textInput) {
-                if (fileName.endsWith('.html') || fileName.endsWith('.htm')) {
-                    // HTML file - preserve formatting
-                    textInput.innerHTML = content;
-                } else if (fileName.endsWith('.md')) {
-                    // Markdown - basic conversion
-                    content = content
-                        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-                        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-                        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                        .replace(/^\- (.*$)/gim, '<li>$1</li>')
-                        .replace(/\n/g, '<br>');
-                    textInput.innerHTML = content;
-                } else {
-                    // Plain text - preserve line breaks
-                    textInput.innerText = content;
+                if (textInput) {
+                    if (fileName.endsWith('.html') || fileName.endsWith('.htm')) {
+                        // HTML file - confirm and sanitize before loading
+                        if (!confirm('This file contains HTML which may include active content (scripts/styles). Load as rich HTML?')) {
+                            // load as plain text fallback
+                            textInput.innerText = content;
+                        } else {
+                            const clean = sanitizeHtml(content);
+                            textInput.innerHTML = clean;
+                        }
+                    } else if (fileName.endsWith('.md')) {
+                        // Markdown - basic conversion then sanitize
+                        content = content
+                            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                            .replace(/^\- (.*$)/gim, '<li>$1</li>')
+                            .replace(/\n/g, '<br>');
+                        textInput.innerHTML = sanitizeHtml(content);
+                    } else {
+                        // Plain text - preserve line breaks
+                        textInput.innerText = content;
+                    }
+                    updateStats();
                 }
-                updateStats();
-            }
         };
         r.readAsText(file);
     }
@@ -2265,19 +2384,20 @@
     // === HISTORY ===
     function addHistory(text) {
         if (!text) return;
-        
-        history.unshift({ 
-            text: text.substring(0, 120), 
-            full: text, 
-            time: new Date().toISOString() 
-        });
-        
+
+        const preview = text.substring(0, 120);
+        const item = { text: preview, time: new Date().toISOString() };
+        if (!privateMode) {
+            item.full = text;
+        }
+
+        history.unshift(item);
         if (history.length > 15) history.pop();
-        
-        try { 
-            localStorage.setItem('ttsHistory', JSON.stringify(history)); 
-        } catch(e) {}
-        
+
+        try {
+            localStorage.setItem('ttsHistory', JSON.stringify(history));
+        } catch (e) {}
+
         renderHistory();
     }
 
@@ -2305,9 +2425,18 @@
             el.addEventListener('click', e => {
                 if (e.target.classList.contains('hist-del')) return;
                 const idx = parseInt(el.dataset.i);
-                if (textInput && history[idx] && history[idx].full) {
-                    textInput.innerText = history[idx].full;
-                    updateStats();
+                if (!history[idx]) return;
+                if (textInput) {
+                    if (history[idx].full) {
+                        textInput.innerText = history[idx].full;
+                        updateStats();
+                    } else {
+                        // Full transcript not saved due to Private Mode
+                        if (confirm('Full transcript was not saved for privacy. Insert preview into editor?')) {
+                            textInput.innerText = history[idx].text || '';
+                            updateStats();
+                        }
+                    }
                 }
             });
         });
@@ -2418,6 +2547,33 @@
             }
         }
     });
+    
+    // === SENSITIVE DATA CLEAR ===
+    const clearSensitiveBtn = $('clearSensitiveBtn');
+    if (clearSensitiveBtn) {
+        clearSensitiveBtn.addEventListener('click', () => {
+            const ok = confirm('This will permanently remove stored history and settings (except current Private Mode state). Proceed?');
+            if (!ok) return;
+            try {
+                localStorage.removeItem('ttsHistory');
+                localStorage.removeItem('sttState');
+                localStorage.removeItem('ttsSettings');
+                // Clear in-memory copies
+                history = [];
+                settings = { privateMode: !!privateMode };
+                saveSettings();
+                // Update UI
+                try { renderHistory(); } catch(e) {}
+                if (textInput) textInput.innerHTML = '';
+                if (reader) reader.innerHTML = '<span class="empty">Enter text in Edit tab</span>';
+                updateStats();
+                alert('Sensitive data cleared.');
+            } catch (e) {
+                console.error('Error clearing sensitive data', e);
+                alert('Error clearing sensitive data (see console)');
+            }
+        });
+    }
 
 })();
 </script>

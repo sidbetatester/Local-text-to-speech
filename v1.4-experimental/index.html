@@ -214,8 +214,8 @@
         <div class="header-row">
             <div class="header-title">🔊 Local-Text-to-Speech <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted)">by Sid</span></div>
             <div class="badges">
-                <span class="badge badge-green" title="Text-to-Speech is 100% local">TTS 100% Local</span>
-                <span class="badge" id="sttBadge" style="background:#fef3c7;color:#92400e;" title="Voice Input disabled by default for privacy">STT Off</span>
+                <span class="badge badge-green" title="Text-to-Speech is 100% local">TTS Local</span>
+                <span class="badge badge-blue" title="Voice Input uses device recognition (enable offline mode for local)" id="sttBadge">STT</span>
                 <span class="badge badge-blue" id="platform">-</span>
             </div>
         </div>
@@ -224,7 +224,7 @@
             <button class="btn btn-icon btn-stop" id="stopBtn" disabled title="Stop (Esc)">⏹</button>
             <button class="btn btn-icon" id="rewindBtn" title="Rewind 5 words (←)" style="background:var(--secondary);color:white;">⏪</button>
             <button class="btn btn-icon" id="forwardBtn" title="Skip 5 words (→)" style="background:var(--secondary);color:white;">⏩</button>
-            <button class="btn btn-icon" id="micBtn" title="Voice input (M)" style="background:#10b981;color:white;display:none;">🎤</button>
+            <button class="btn btn-icon" id="micBtn" title="Voice input (M)" style="background:#10b981;color:white;">🎤</button>
             <div class="progress-area">
                 <div class="progress-bar"><div class="progress-fill" id="prog"></div></div>
                 <div class="progress-text"><span id="pos">Ready</span><span id="eta"></span></div>
@@ -326,114 +326,129 @@
                 <details class="tip"><summary>💡 Better voices</summary><ul><li><b>Win:</b> Settings → Speech</li><li><b>Mac:</b> System Settings → Accessibility → Spoken Content</li><li><b>iOS:</b> Settings → Accessibility → Spoken Content</li></ul></details>
             </div>
 
-            <div class="card" id="sttCard">
+            <div class="card">
                 <div class="collapse-head" id="sttHead">
                     <div class="card-title" style="margin:0">🎤 Voice Input (Speech-to-Text)</div>
-                    <svg class="collapse-icon" id="sttIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    <svg class="collapse-icon open" id="sttIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </div>
-                <div class="collapse-body" id="sttBody">
+                <div class="collapse-body open" id="sttBody">
+                    <div class="stt-status" id="sttStatus" style="padding:8px 0;font-size:0.85rem;color:var(--text-muted);">
+                        Click 🎤 or press <kbd style="background:#e2e8f0;padding:2px 6px;border-radius:3px;">M</kbd> to start voice input
+                    </div>
                     
-                    <!-- Privacy Warning (shown when STT is disabled) -->
-                    <div id="sttPrivacyWarning">
-                        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;margin-bottom:12px;">
-                            <div style="font-weight:600;color:#991b1b;margin-bottom:8px;font-size:0.85rem;">⚠️ Privacy Notice</div>
-                            <p style="font-size:0.75rem;color:#7f1d1d;margin-bottom:8px;">
-                                Voice Input uses your browser's speech recognition, which <b>may send your voice to cloud servers</b> (Google, Apple, or Microsoft) unless you enable offline mode in your device settings.
-                            </p>
-                            <p style="font-size:0.75rem;color:#7f1d1d;margin-bottom:12px;">
-                                This is different from Text-to-Speech which is <b>100% local</b>.
-                            </p>
-                            
-                            <details style="margin-bottom:12px;">
-                                <summary style="font-size:0.75rem;cursor:pointer;color:#991b1b;font-weight:500;">📋 How to enable offline/local voice recognition</summary>
-                                <div style="margin-top:8px;font-size:0.7rem;color:#7f1d1d;">
-                                    <p style="margin-bottom:6px;"><b>📱 iPhone/iPad:</b> Settings → General → Keyboard → Dictation → Enable "On-Device Dictation"</p>
-                                    <p style="margin-bottom:6px;"><b>🍎 Mac:</b> System Settings → Keyboard → Dictation → Select "On-Device Only"</p>
-                                    <p style="margin-bottom:6px;"><b>🤖 Android:</b> Settings → Google → Voice → Offline Speech Recognition → Download your language</p>
-                                    <p style="margin-bottom:6px;"><b>🪟 Windows 11:</b> Settings → Privacy & Security → Speech → Turn OFF "Online speech recognition"</p>
-                                    <p><b>🪟 Windows 10:</b> Use built-in "Windows Speech Recognition" (works offline)</p>
-                                </div>
-                            </details>
-                            
-                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                                <button id="sttEnableBtn" class="btn" style="background:#dc2626;color:white;font-size:0.75rem;padding:8px 16px;">
-                                    I understand, enable Voice Input
-                                </button>
-                                <button id="sttEnableOfflineBtn" class="btn" style="background:#16a34a;color:white;font-size:0.75rem;padding:8px 16px;">
-                                    ✅ I've enabled offline mode, proceed
-                                </button>
-                            </div>
+                    <button id="sttTestBtn" class="btn" style="background:#3b82f6;color:white;font-size:0.75rem;padding:6px 12px;margin-bottom:10px;">
+                        🔊 Test: Click then say "Hello"
+                    </button>
+                    
+                    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px;margin-bottom:10px;font-size:0.75rem;">
+                        📍 Text will appear in the <b>Edit</b> tab as you speak
+                    </div>
+                    
+                    <div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:8px;margin-bottom:10px;font-size:0.7rem;">
+                        <b>💡 Tips if not detecting speech:</b>
+                        <ul style="margin:4px 0 0 16px;padding:0;">
+                            <li>Speak clearly and at normal volume</li>
+                            <li>Get closer to your microphone (6-12 inches)</li>
+                            <li>Reduce background noise</li>
+                            <li>Check browser is using correct microphone (click 🔒 in address bar)</li>
+                            <li>Try enabling "Keep listening" mode below</li>
+                        </ul>
+                    </div>
+                    
+                    <div id="sttOutput" style="background:#fefce8;border:1px solid #fde047;border-radius:6px;padding:8px;margin-bottom:10px;font-size:0.8rem;min-height:40px;display:none;">
+                        <b>Last recognized:</b> <span id="sttLastText">-</span>
+                    </div>
+                    
+                    <div id="micLevel" style="display:none;margin-bottom:10px;">
+                        <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px;">🎚️ Microphone level:</div>
+                        <div style="background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;">
+                            <div id="micLevelBar" style="background:#22c55e;height:100%;width:0%;transition:width 0.1s;"></div>
                         </div>
                     </div>
                     
-                    <!-- STT Controls (hidden until enabled) -->
-                    <div id="sttControls" style="display:none;">
-                        <div id="sttModeIndicator" style="background:#fefce8;border:1px solid #fde047;border-radius:6px;padding:8px;margin-bottom:10px;font-size:0.75rem;">
-                            <span id="sttModeText">⚠️ Voice may be processed in cloud. <a href="#" id="sttShowOfflineGuide" style="color:#0066cc;">Enable offline mode</a> for local processing.</span>
-                        </div>
-                        
-                        <div class="stt-status" id="sttStatus" style="padding:8px 0;font-size:0.85rem;color:var(--text-muted);">
-                            Click 🎤 or press <kbd style="background:#e2e8f0;padding:2px 6px;border-radius:3px;">M</kbd> to start voice input
-                        </div>
-                        
-                        <button id="sttTestBtn" class="btn" style="background:#3b82f6;color:white;font-size:0.75rem;padding:6px 12px;margin-bottom:10px;">
-                            🔊 Test: Click then say "Hello"
-                        </button>
-                        
-                        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px;margin-bottom:10px;font-size:0.75rem;">
-                            📍 Text will appear in the <b>Edit</b> tab as you speak
-                        </div>
-                        
-                        <div id="sttOutput" style="background:#fefce8;border:1px solid #fde047;border-radius:6px;padding:8px;margin-bottom:10px;font-size:0.8rem;min-height:40px;display:none;">
-                            <b>Last recognized:</b> <span id="sttLastText">-</span>
-                        </div>
-                        
-                        <div id="micLevel" style="display:none;margin-bottom:10px;">
-                            <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px;">🎚️ Microphone level:</div>
-                            <div style="background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;">
-                                <div id="micLevelBar" style="background:#22c55e;height:100%;width:0%;transition:width 0.1s;"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="stt-options" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-                            <label style="font-size:0.75rem;display:flex;align-items:center;gap:4px;" title="Keep listening until you stop (good for long dictation)">
-                                <span class="toggle"><input type="checkbox" id="sttContinuous" checked><span></span></span>
-                                Keep listening
-                            </label>
-                            <label style="font-size:0.75rem;display:flex;align-items:center;gap:4px;">
-                                Language:
-                                <select id="sttLang" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:0.75rem;">
-                                    <option value="">Auto-detect</option>
-                                    <option value="en-US">English (US)</option>
-                                    <option value="en-GB">English (UK)</option>
-                                    <option value="es-ES">Spanish</option>
-                                    <option value="fr-FR">French</option>
-                                    <option value="de-DE">German</option>
-                                    <option value="it-IT">Italian</option>
-                                    <option value="pt-BR">Portuguese</option>
-                                    <option value="zh-CN">Chinese</option>
-                                    <option value="ja-JP">Japanese</option>
-                                    <option value="ko-KR">Korean</option>
-                                    <option value="hi-IN">Hindi</option>
-                                    <option value="ar-SA">Arabic</option>
-                                </select>
-                            </label>
-                        </div>
-                        
-                        <details class="tip" style="margin-top:8px;">
-                            <summary>💡 Tips if not detecting speech</summary>
-                            <ul style="margin:8px 0 0 16px;font-size:0.7rem;">
-                                <li>Speak clearly and at normal volume</li>
-                                <li>Get closer to your microphone (6-12 inches)</li>
-                                <li>Reduce background noise</li>
-                                <li>Check browser is using correct microphone (click 🔒 in address bar)</li>
-                            </ul>
-                        </details>
-                        
-                        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
-                            <button id="sttDisableBtn" class="btn-sm" style="color:#dc2626;">Disable Voice Input</button>
-                        </div>
+                    <div class="stt-options" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+                        <label style="font-size:0.75rem;display:flex;align-items:center;gap:4px;" title="Keep listening until you stop (good for long dictation)">
+                            <span class="toggle"><input type="checkbox" id="sttContinuous" checked><span></span></span>
+                            Keep listening
+                        </label>
+                        <label style="font-size:0.75rem;display:flex;align-items:center;gap:4px;">
+                            Language:
+                            <select id="sttLang" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:0.75rem;">
+                                <option value="">Auto-detect</option>
+                                <option value="en-US">English (US)</option>
+                                <option value="en-GB">English (UK)</option>
+                                <option value="es-ES">Spanish</option>
+                                <option value="fr-FR">French</option>
+                                <option value="de-DE">German</option>
+                                <option value="it-IT">Italian</option>
+                                <option value="pt-BR">Portuguese</option>
+                                <option value="zh-CN">Chinese</option>
+                                <option value="ja-JP">Japanese</option>
+                                <option value="ko-KR">Korean</option>
+                                <option value="hi-IN">Hindi</option>
+                                <option value="ar-SA">Arabic</option>
+                            </select>
+                        </label>
                     </div>
+                    
+                    <p style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px;">
+                        💡 <b>Keep listening</b> = Continues recording after pauses (for long dictation). When off, stops after each sentence.
+                    </p>
+                    
+                    <details class="tip" style="margin-top:8px;">
+                        <summary>🔒 Enable Offline Voice Recognition (Manual Setup Required)</summary>
+                        <div style="margin-top:8px;">
+                            <p style="margin-bottom:8px;font-size:0.75rem;color:#b91c1c;"><b>⚠️ This requires changing your device settings manually.</b> Websites cannot change OS settings for security reasons.</p>
+                            <p style="margin-bottom:8px;font-size:0.75rem;">For <b>100% local</b> voice input with no data sent to servers:</p>
+                            
+                            <div style="margin-bottom:8px;">
+                                <b style="font-size:0.75rem;">📱 iPhone/iPad (iOS 13+)</b>
+                                <ol style="margin:4px 0 0 16px;font-size:0.7rem;">
+                                    <li>Settings → General → Keyboard</li>
+                                    <li>Enable Dictation → On</li>
+                                    <li>Enable "On-Device Dictation"</li>
+                                </ol>
+                            </div>
+                            
+                            <div style="margin-bottom:8px;">
+                                <b style="font-size:0.75rem;">🍎 Mac (macOS Monterey+)</b>
+                                <ol style="margin:4px 0 0 16px;font-size:0.7rem;">
+                                    <li>System Settings → Keyboard → Dictation</li>
+                                    <li>Turn On Dictation</li>
+                                    <li>Select "On-Device Only"</li>
+                                </ol>
+                            </div>
+                            
+                            <div style="margin-bottom:8px;">
+                                <b style="font-size:0.75rem;">🤖 Android</b>
+                                <ol style="margin:4px 0 0 16px;font-size:0.7rem;">
+                                    <li>Settings → Google → Voice</li>
+                                    <li>Offline Speech Recognition</li>
+                                    <li>Download your language</li>
+                                </ol>
+                            </div>
+                            
+                            <div style="margin-bottom:8px;">
+                                <b style="font-size:0.75rem;">🪟 Windows 11</b>
+                                <ol style="margin:4px 0 0 16px;font-size:0.7rem;">
+                                    <li>Settings → Privacy & Security → Speech</li>
+                                    <li>Turn OFF "Online speech recognition"</li>
+                                    <li>Uses local Windows Speech Recognition</li>
+                                </ol>
+                            </div>
+                            
+                            <div style="margin-bottom:4px;">
+                                <b style="font-size:0.75rem;">🪟 Windows 10</b>
+                                <ol style="margin:4px 0 0 16px;font-size:0.7rem;">
+                                    <li>Search "Windows Speech Recognition"</li>
+                                    <li>Complete setup wizard</li>
+                                    <li>Works fully offline</li>
+                                </ol>
+                            </div>
+                            
+                            <p style="margin-top:8px;font-size:0.7rem;color:#92400e;">⚠️ Without offline mode enabled, voice may be sent to Google/Apple servers for processing.</p>
+                        </div>
+                    </details>
                 </div>
             </div>
 
@@ -474,7 +489,6 @@
     let utterance = null;
     let speaking = false;
     let paused = false;
-    let pauseIntended = false; // Flag to prevent onend from resetting state when pausing
     let wordMap = [];
     let currentText = '';
     let lastWordIndex = -1;
@@ -1165,29 +1179,19 @@
             return;
         }
         
-        // 2. If paused → Resume by restarting from current word (native resume is buggy)
+        // 2. If paused → Resume
         if (speaking && paused) {
-            // Don't use synth.resume() - it causes sync issues
-            // Instead, restart from the current word position
-            if (lastWordIndex >= 0 && wordMap.length > 0) {
-                paused = false;
-                speakFromWord(lastWordIndex);
-                setStatus('speaking', 'Resuming');
-            } else {
-                // Fallback: restart from beginning
-                paused = false;
-                speakWithMode(null, 'full');
-            }
+            synth.resume();
+            paused = false;
+            setStatus('speaking', 'Resuming');
             updateBtns();
             return;
         }
         
         // 3. If speaking → Pause
         if (speaking && !paused) {
-            pauseIntended = true; // Set flag before cancel to prevent onend from resetting
-            synth.cancel(); // Use cancel instead of pause for cleaner state
+            synth.pause();
             paused = true;
-            speaking = true; // Keep speaking flag true so we know to resume
             setStatus('paused', 'Paused');
             updateBtns();
             return;
@@ -1251,12 +1255,6 @@
         };
         
         utterance.onend = () => {
-            // If we intentionally paused, don't reset state
-            if (pauseIntended) {
-                pauseIntended = false;
-                return;
-            }
-            
             speaking = false;
             paused = false;
             if (reader && (mode === 'full' || mode === 'from-word')) {
@@ -1299,7 +1297,6 @@
     }
 
     function stop() {
-        pauseIntended = false; // Reset flag
         synth.cancel();
         speaking = false;
         paused = false;
@@ -1388,12 +1385,6 @@
         };
         
         utterance.onend = () => {
-            // If we intentionally paused, don't reset state
-            if (pauseIntended) {
-                pauseIntended = false;
-                return;
-            }
-            
             speaking = false;
             if (reader) {
                 reader.querySelectorAll('.w').forEach(el => { 
@@ -1470,12 +1461,6 @@
         };
         
         utterance.onend = () => {
-            // If we intentionally paused, don't reset state
-            if (pauseIntended) {
-                pauseIntended = false;
-                return;
-            }
-            
             speaking = false;
             if (reader) {
                 reader.querySelectorAll('.w').forEach(el => { 
@@ -1527,9 +1512,6 @@
             if (speaking && !paused) {
                 playPauseBtn.innerHTML = '⏸ Pause';
                 playPauseBtn.style.background = 'var(--warning)';
-            } else if (speaking && paused) {
-                playPauseBtn.innerHTML = '▶ Resume';
-                playPauseBtn.style.background = 'var(--success)';
             } else {
                 playPauseBtn.innerHTML = '▶ Play';
                 playPauseBtn.style.background = 'var(--primary)';
@@ -1556,135 +1538,11 @@
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isListening = false;
-    let sttEnabled = false;
-    let sttOfflineMode = false;
     
     const micBtn = $('micBtn');
     const sttStatus = $('sttStatus');
     const sttContinuous = $('sttContinuous');
     const sttLang = $('sttLang');
-    const sttPrivacyWarning = $('sttPrivacyWarning');
-    const sttControls = $('sttControls');
-    const sttEnableBtn = $('sttEnableBtn');
-    const sttEnableOfflineBtn = $('sttEnableOfflineBtn');
-    const sttDisableBtn = $('sttDisableBtn');
-    const sttModeIndicator = $('sttModeIndicator');
-    const sttModeText = $('sttModeText');
-    const sttShowOfflineGuide = $('sttShowOfflineGuide');
-    
-    // Load STT enabled state from localStorage
-    try {
-        const sttState = JSON.parse(localStorage.getItem('sttState') || '{}');
-        sttEnabled = sttState.enabled || false;
-        sttOfflineMode = sttState.offlineMode || false;
-    } catch(e) {}
-    
-    function updateSttUI() {
-        const sttBadge = $('sttBadge');
-        
-        if (sttEnabled) {
-            if (sttPrivacyWarning) sttPrivacyWarning.style.display = 'none';
-            if (sttControls) sttControls.style.display = 'block';
-            if (micBtn) micBtn.style.display = '';
-            
-            // Update badge
-            if (sttBadge) {
-                if (sttOfflineMode) {
-                    sttBadge.style.background = '#dcfce7';
-                    sttBadge.style.color = '#166534';
-                    sttBadge.textContent = 'STT Local';
-                    sttBadge.title = 'Voice Input enabled with offline mode (local processing)';
-                } else {
-                    sttBadge.style.background = '#fef3c7';
-                    sttBadge.style.color = '#92400e';
-                    sttBadge.textContent = 'STT Cloud';
-                    sttBadge.title = 'Voice Input enabled (may use cloud processing)';
-                }
-            }
-            
-            // Update mode indicator
-            if (sttModeIndicator && sttModeText) {
-                if (sttOfflineMode) {
-                    sttModeIndicator.style.background = '#f0fdf4';
-                    sttModeIndicator.style.borderColor = '#86efac';
-                    sttModeText.innerHTML = '✅ Offline mode enabled - voice processed locally on your device.';
-                } else {
-                    sttModeIndicator.style.background = '#fefce8';
-                    sttModeIndicator.style.borderColor = '#fde047';
-                    sttModeText.innerHTML = '⚠️ Voice may be processed in cloud. <a href="#" id="sttShowOfflineGuide" style="color:#0066cc;">Enable offline mode</a> for local processing.';
-                    
-                    // Re-attach click handler
-                    const newGuideLink = $('sttShowOfflineGuide');
-                    if (newGuideLink) {
-                        newGuideLink.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            showOfflineGuide();
-                        });
-                    }
-                }
-            }
-        } else {
-            if (sttPrivacyWarning) sttPrivacyWarning.style.display = 'block';
-            if (sttControls) sttControls.style.display = 'none';
-            if (micBtn) micBtn.style.display = 'none';
-            
-            // Update badge
-            if (sttBadge) {
-                sttBadge.style.background = '#f3f4f6';
-                sttBadge.style.color = '#6b7280';
-                sttBadge.textContent = 'STT Off';
-                sttBadge.title = 'Voice Input disabled for privacy';
-            }
-        }
-    }
-    
-    function enableStt(offlineMode) {
-        sttEnabled = true;
-        sttOfflineMode = offlineMode;
-        try {
-            localStorage.setItem('sttState', JSON.stringify({ enabled: true, offlineMode: offlineMode }));
-        } catch(e) {}
-        updateSttUI();
-    }
-    
-    function disableStt() {
-        sttEnabled = false;
-        sttOfflineMode = false;
-        stopListening();
-        try {
-            localStorage.setItem('sttState', JSON.stringify({ enabled: false, offlineMode: false }));
-        } catch(e) {}
-        updateSttUI();
-    }
-    
-    function showOfflineGuide() {
-        alert('To enable offline voice recognition:\n\n' +
-            '📱 iPhone/iPad: Settings → General → Keyboard → Dictation → "On-Device Dictation"\n\n' +
-            '🍎 Mac: System Settings → Keyboard → Dictation → "On-Device Only"\n\n' +
-            '🤖 Android: Settings → Google → Voice → Offline Speech Recognition\n\n' +
-            '🪟 Windows 11: Settings → Privacy → Speech → Turn OFF "Online speech recognition"\n\n' +
-            '🪟 Windows 10: Use built-in "Windows Speech Recognition"');
-    }
-    
-    // Initialize UI
-    updateSttUI();
-    
-    // Button handlers
-    if (sttEnableBtn) {
-        sttEnableBtn.addEventListener('click', () => enableStt(false));
-    }
-    if (sttEnableOfflineBtn) {
-        sttEnableOfflineBtn.addEventListener('click', () => enableStt(true));
-    }
-    if (sttDisableBtn) {
-        sttDisableBtn.addEventListener('click', disableStt);
-    }
-    if (sttShowOfflineGuide) {
-        sttShowOfflineGuide.addEventListener('click', (e) => {
-            e.preventDefault();
-            showOfflineGuide();
-        });
-    }
     
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
@@ -1863,18 +1721,6 @@
     }
     
     function startListening() {
-        if (!sttEnabled) {
-            // Open STT section if it's collapsed
-            const sttBody = $('sttBody');
-            const sttIcon = $('sttIcon');
-            if (sttBody && !sttBody.classList.contains('open')) {
-                sttBody.classList.add('open');
-                if (sttIcon) sttIcon.classList.add('open');
-            }
-            alert('Voice Input is disabled. Please enable it first by accepting the privacy notice.');
-            return;
-        }
-        
         if (!recognition) {
             alert('Speech recognition not supported in this browser. Try Chrome, Edge, or Safari.');
             return;
@@ -2405,17 +2251,7 @@
         }
         if (e.code === 'KeyM') {
             e.preventDefault();
-            if (sttEnabled) {
-                toggleListening();
-            } else {
-                // Open STT section to show privacy warning
-                const sttBody = $('sttBody');
-                const sttIcon = $('sttIcon');
-                if (sttBody) {
-                    sttBody.classList.add('open');
-                    if (sttIcon) sttIcon.classList.add('open');
-                }
-            }
+            toggleListening();
         }
     });
 
