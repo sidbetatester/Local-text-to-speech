@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Local-Text-to-Speech & Voice Input by Sid</title>
+    <!--
+        CSP Note (single-file releases):
+        To use a strict Content-Security-Policy without `unsafe-inline` for this single-file bundle,
+        compute the SHA-256 hash of the final inline script content and include it in the header:
+
+        Example header (nginx):
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-<BASE64_HASH>'; style-src 'self' 'sha256-<STYLE_HASH>'; img-src 'self' data:; connect-src 'self' https:;";
+
+        Replace <BASE64_HASH> with the base64-encoded SHA-256 digest of the inline <script> contents.
+        Note: any change to the file requires recomputing these hashes.
+    -->
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -209,8 +220,75 @@
         .hidden { display: none !important; }
 
         @media (max-width: 500px) { :root { --header-height: 115px; } .header-title { font-size: 1rem; } }
+
+        /* Modal for encryption/passphrase */
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 9999; }
+        .modal-backdrop.open { display: flex; }
+        .modal { background: white; border-radius: 8px; padding: 16px; max-width: 420px; width: 92%; box-shadow: 0 6px 24px rgba(0,0,0,0.2); }
+        .modal h3 { margin-bottom: 8px; font-size: 1rem; }
+        .modal .row { margin-bottom: 8px; }
+        .modal input[type="password"], .modal input[type="text"] { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
+        .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+    <!-- Inline sanitizer (compact DOMPurify-like subset). Keeps a small allowlist to avoid external CDN. -->
+    <script>
+    // Compact sanitizer exposing DOMPurify.sanitize(html, cfg)
+    (function(window){
+        function toArrayLike(xs){ return xs ? Array.prototype.slice.call(xs) : []; }
+        function sanitize(html, cfg){
+            if (!html) return '';
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const allowedTags = (cfg && cfg.ALLOWED_TAG) || (cfg && cfg.ALLOWED_TAGS) || ['b','i','u','em','strong','p','br','ul','ol','li','h1','h2','h3','h4','h5','h6','blockquote','table','thead','tbody','tr','th','td','a','img'];
+                const allowedAttrs = (cfg && cfg.ALLOWED_ATTR) || ['href','src','alt','title','target'];
+
+                function cleanNode(node){
+                    if (node.nodeType === Node.ELEMENT_NODE){
+                        const name = node.tagName.toLowerCase();
+                        if (allowedTags.indexOf(name) === -1){
+                            // Replace disallowed element with its children
+                            const parent = node.parentNode;
+                            while (node.firstChild) parent.insertBefore(node.firstChild, node);
+                            parent.removeChild(node);
+                            return; // children already reinserted, they will be cleaned in traversal
+                        }
+
+                        // Clean attributes
+                        toArrayLike(node.attributes).forEach(attr => {
+                            const an = attr.name.toLowerCase();
+                            if (allowedAttrs.indexOf(an) === -1) {
+                                node.removeAttribute(attr.name);
+                                return;
+                            }
+                            // Basic URL protocol filter for href/src
+                            if ((an === 'href' || an === 'src') && node.getAttribute(attr.name)){
+                                const v = node.getAttribute(attr.name).trim();
+                                if (v.indexOf('javascript:') === 0 || v.indexOf('data:') === 0) {
+                                    node.removeAttribute(attr.name);
+                                }
+                            }
+                        });
+                    }
+                    // Recurse
+                    let child = node.firstChild;
+                    while (child){
+                        const next = child.nextSibling;
+                        cleanNode(child);
+                        child = next;
+                    }
+                }
+
+                cleanNode(doc.body);
+                return doc.body.innerHTML || '';
+            } catch(e){
+                return html.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            }
+        }
+        window.DOMPurify = { sanitize };
+    })(window);
+    </script>
 </head>
 <body>
     <div class="fixed-header">
@@ -220,9 +298,14 @@
                 <span class="badge badge-green" title="Text-to-Speech is 100% local">TTS 100% Local</span>
                 <span class="badge" id="sttBadge" style="background:#fef3c7;color:#92400e;" title="Voice Input disabled by default for privacy">STT Off</span>
                                 <span class="badge badge-blue" id="platform">-</span>
+                                <span class="badge" id="encStatus" title="Encryption status">🔒 Locked</span>
                                 <label title="Private Mode" style="display:flex;align-items:center;gap:6px;font-size:0.7rem;margin-left:8px;">
                                     <input type="checkbox" id="privateModeToggle" style="width:14px;height:14px;">
                                     Private
+                                </label>
+                                <label title="Wipe sensitive data on exit" style="display:flex;align-items:center;gap:6px;font-size:0.7rem;margin-left:8px;">
+                                    <input type="checkbox" id="wipeOnExitToggle" style="width:14px;height:14px;">
+                                    Wipe on exit
                                 </label>
             </div>
         </div>
@@ -471,8 +554,29 @@
         </div>
     </div>
 
-<script>
-(function() {
+        <!-- Encryption / Passphrase Modal -->
+        <div class="modal-backdrop" id="encModalBackdrop" aria-hidden="true">
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="encModalTitle">
+                <h3 id="encModalTitle">Storage Encryption</h3>
+                <div id="encModalBody">
+                    <div class="row" id="encModeExplain">Protect stored history and settings with a passphrase.</div>
+                    <div class="row" id="encForm">
+                        <input type="password" id="encPass" placeholder="Passphrase" autocomplete="new-password">
+                    </div>
+                    <div class="row" id="encConfirmRow" style="display:none;">
+                        <input type="password" id="encPassConfirm" placeholder="Confirm passphrase" autocomplete="new-password">
+                    </div>
+                    <div class="actions">
+                        <button id="encCancelBtn" class="btn-sm">Cancel</button>
+                        <button id="encResetBtn" class="btn-sm" style="background:#ef4444;color:white;display:none;margin-right:auto;">Reset (delete encrypted data)</button>
+                        <button id="encActionBtn" class="btn-sm" style="background:var(--primary);color:white;">Enable</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <script>
+(async function() {
     'use strict';
     
     const synth = window.speechSynthesis;
@@ -498,8 +602,10 @@
     let privateMode = false;
     // Voice privacy filter: show only localService voices when true
     let voiceLocalOnly = false;
+    // Wipe on exit: clear sensitive storage when the page is closed
+    let wipeOnExit = false;
 
-    // Sanitize helper using DOMPurify (safe fallback returns plain text)
+    // Sanitize helper using inlined DOMPurify-like sanitizer
     function sanitizeHtml(html) {
         if (!html) return '';
         if (window.DOMPurify && typeof DOMPurify.sanitize === 'function') {
@@ -508,9 +614,112 @@
                 ALLOWED_ATTR: ['href','src','alt','title','target']
             });
         }
-        // Fallback: escape angle brackets to avoid HTML execution
         return html.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
+
+    // --- Encryption / Web Crypto helpers (master-key approach) ---
+    let encryptionEnabled = false; // true if enc_meta present or user enabled
+    let masterKey = null; // CryptoKey cached in memory when unlocked
+    const ENC_META_KEY = 'enc_meta'; // stores {v:1, salt, iter}
+
+    function toB64(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+    function fromB64(s){ const bin = atob(s); const arr = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); return arr.buffer; }
+
+    async function deriveMasterKeyFromPassphrase(passphrase, saltB64, iterations){
+        const enc = new TextEncoder();
+        const passKey = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+        const salt = saltB64 ? new Uint8Array(atob(saltB64).split('').map(c=>c.charCodeAt(0))) : crypto.getRandomValues(new Uint8Array(16));
+        const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: iterations || 150000, hash: 'SHA-256' }, passKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt','decrypt']);
+        return { key, salt }; // salt is Uint8Array
+    }
+
+    async function encryptWithMaster(obj){
+        if (!masterKey) throw new Error('masterKey not available');
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const enc = new TextEncoder();
+        const pt = enc.encode(JSON.stringify(obj));
+        const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, masterKey, pt);
+        return { v:1, iv: toB64(iv), ct: toB64(ct) };
+    }
+
+    async function decryptWithMaster(blob){
+        if (!masterKey) throw new Error('masterKey not available');
+        const iv = new Uint8Array(atob(blob.iv).split('').map(c=>c.charCodeAt(0)));
+        const ctBuf = fromB64(blob.ct);
+        const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, masterKey, ctBuf);
+        const dec = new TextDecoder();
+        return JSON.parse(dec.decode(new Uint8Array(plainBuf)));
+    }
+
+    // Storage wrappers
+    async function setEncryptedItem(key, obj){
+        try {
+            if (encryptionEnabled && masterKey){
+                const cipher = await encryptWithMaster(obj);
+                localStorage.setItem('enc:' + key, JSON.stringify(cipher));
+                return;
+            }
+            // fallback: plaintext
+            localStorage.setItem(key, JSON.stringify(obj));
+        } catch(e){ console.error('setEncryptedItem error', e); }
+    }
+
+    async function getEncryptedItem(key, fallback){
+        try {
+            if (encryptionEnabled){
+                const raw = localStorage.getItem('enc:' + key);
+                if (!raw) return fallback;
+                const blob = JSON.parse(raw);
+                if (!masterKey) return fallback; // locked
+                try {
+                    const dec = await decryptWithMaster(blob);
+                    return dec;
+                } catch(e){ console.warn('decrypt failed', e); return fallback; }
+            }
+            return safeParseJSON(localStorage.getItem(key), fallback);
+        } catch(e){ return fallback; }
+    }
+
+    async function enableEncryptionWithPassphrase(passphrase, iterations){
+        // create master salt and derive masterKey
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const saltB64 = toB64(salt);
+        const meta = { v:1, salt: saltB64, iter: iterations || 150000 };
+        localStorage.setItem(ENC_META_KEY, JSON.stringify(meta));
+        encryptionEnabled = true;
+        const res = await deriveMasterKeyFromPassphrase(passphrase, saltB64, meta.iter);
+        masterKey = res.key;
+        // migrate known plaintext keys if present
+        const migrateKeys = ['ttsSettings','ttsHistory','sttState'];
+        for (const k of migrateKeys){
+            const raw = localStorage.getItem(k);
+            if (raw){
+                try {
+                    const obj = safeParseJSON(raw, null);
+                    if (obj !== null){
+                        await setEncryptedItem(k, obj);
+                        localStorage.removeItem(k);
+                    }
+                } catch(e){}
+            }
+        }
+    }
+
+    async function unlockEncryption(passphrase){
+        const metaRaw = localStorage.getItem(ENC_META_KEY);
+        if (!metaRaw) return false;
+        const meta = safeParseJSON(metaRaw, null);
+        if (!meta) return false;
+        try {
+            const res = await deriveMasterKeyFromPassphrase(passphrase, meta.salt, meta.iter);
+            masterKey = res.key; encryptionEnabled = true; return true;
+        } catch(e){ console.warn('unlock failed', e); return false; }
+    }
+
+    function lockEncryption(){ masterKey = null; }
+
+    // Check if enc_meta present at startup
+    try { encryptionEnabled = !!localStorage.getItem(ENC_META_KEY); } catch(e){ encryptionEnabled = false; }
 
     function safeParseJSON(str, fallback) {
         try {
@@ -521,16 +730,19 @@
         }
     }
 
-    history = safeParseJSON(localStorage.getItem('ttsHistory'), []);
+    // Attempt to load encrypted items if encryption is enabled; fall back to plaintext.
+    history = await getEncryptedItem('ttsHistory', safeParseJSON(localStorage.getItem('ttsHistory'), []));
     if (!Array.isArray(history)) history = [];
-    
-    settings = safeParseJSON(localStorage.getItem('ttsSettings'), {});
+
+    settings = await getEncryptedItem('ttsSettings', safeParseJSON(localStorage.getItem('ttsSettings'), {}));
     if (typeof settings !== 'object' || settings === null) settings = {};
 
     // Initialize privateMode from saved settings
     try { privateMode = !!settings.privateMode; } catch(e) { privateMode = false; }
     // Initialize voiceLocalOnly from saved settings
     try { voiceLocalOnly = !!settings.voiceLocalOnly; } catch(e) { voiceLocalOnly = false; }
+    // Initialize wipeOnExit from saved settings
+    try { wipeOnExit = !!settings.wipeOnExit; } catch(e) { wipeOnExit = false; }
 
     function $(id) {
         return document.getElementById(id);
@@ -546,6 +758,98 @@
     const reader = $('reader');
     const prog = $('prog');
     const localOnlyToggle = $('localOnlyToggle');
+    const wipeOnExitToggle = $('wipeOnExitToggle');
+
+    // Encryption UI elements
+    const encStatusEl = $('encStatus');
+    const encModalBackdrop = $('encModalBackdrop');
+    const encPassInput = $('encPass');
+    const encPassConfirm = $('encPassConfirm');
+    const encCancelBtn = $('encCancelBtn');
+    const encResetBtn = $('encResetBtn');
+    const encActionBtn = $('encActionBtn');
+    const encConfirmRow = $('encConfirmRow');
+
+    function updateEncStatusUI(){
+        if (!encStatusEl) return;
+        if (!encryptionEnabled) { encStatusEl.textContent = '🔒 Off'; encStatusEl.title = 'Encryption disabled'; }
+        else if (encryptionEnabled && !masterKey) { encStatusEl.textContent = '🔒 Locked'; encStatusEl.title = 'Encrypted (locked) - click to unlock'; }
+        else { encStatusEl.textContent = '🔓 Unlocked'; encStatusEl.title = 'Encrypted (unlocked) - click to lock'; }
+    }
+
+    function openEncModal(mode){
+        if (!encModalBackdrop) return;
+        encModalBackdrop.classList.add('open');
+        if (mode === 'enable'){
+            if (encConfirmRow) encConfirmRow.style.display = '';
+            if (encActionBtn) encActionBtn.textContent = 'Enable';
+            if (encResetBtn) encResetBtn.style.display = 'none';
+        } else if (mode === 'unlock'){
+            if (encConfirmRow) encConfirmRow.style.display = 'none';
+            if (encActionBtn) encActionBtn.textContent = 'Unlock';
+            // show reset button only when encryption appears enabled
+            if (encResetBtn) encResetBtn.style.display = encryptionEnabled ? '' : 'none';
+        }
+        if (encPassInput) encPassInput.value = '';
+        if (encPassConfirm) encPassConfirm.value = '';
+        if (encPassInput) encPassInput.focus();
+    }
+
+    function closeEncModal(){ if (encModalBackdrop) encModalBackdrop.classList.remove('open'); }
+
+    if (encStatusEl) {
+        encStatusEl.addEventListener('click', () => {
+            if (!encryptionEnabled) openEncModal('enable');
+            else if (encryptionEnabled && !masterKey) openEncModal('unlock');
+            else { // locked state - allow lock by clicking
+                const ok = confirm('Lock encryption for this session? You will need to enter your passphrase to unlock later.');
+                if (ok) { lockEncryption(); updateEncStatusUI(); }
+            }
+        });
+    }
+
+    if (encCancelBtn) encCancelBtn.addEventListener('click', () => { closeEncModal(); });
+
+    if (encResetBtn) {
+        encResetBtn.addEventListener('click', async () => {
+            const ok = confirm('Reset encryption and delete ALL encrypted data? This is irreversible. Do you want to proceed?');
+            if (!ok) return;
+            try {
+                await clearSensitiveData(false);
+                // ensure flags cleared
+                try { masterKey = null; encryptionEnabled = false; } catch(e){}
+                updateEncStatusUI();
+                closeEncModal();
+                alert('Encryption reset and encrypted data deleted.');
+            } catch (e) {
+                console.error('Failed to reset encryption', e);
+                alert('Failed to reset encryption (see console)');
+            }
+        });
+    }
+
+    if (encActionBtn) encActionBtn.addEventListener('click', async () => {
+        const pass = encPassInput ? encPassInput.value : '';
+        if (!pass) { alert('Enter a passphrase'); return; }
+        // Determine mode: enable (confirm visible) or unlock
+        if (encConfirmRow && encConfirmRow.style.display !== 'none'){
+            const pass2 = encPassConfirm ? encPassConfirm.value : '';
+            if (pass !== pass2) { alert('Passphrases do not match'); return; }
+            try {
+                await enableEncryptionWithPassphrase(pass);
+                closeEncModal(); updateEncStatusUI(); alert('Encryption enabled and existing data migrated.');
+            } catch(e){ console.error(e); alert('Failed to enable encryption'); }
+        } else {
+            // unlock
+            try {
+                const ok = await unlockEncryption(pass);
+                if (!ok) { alert('Incorrect passphrase'); return; }
+                closeEncModal(); updateEncStatusUI(); alert('Unlocked encrypted storage for this session.');
+            } catch(e){ console.error(e); alert('Failed to unlock'); }
+        }
+    });
+
+    updateEncStatusUI();
 
     // Platform
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -846,7 +1150,7 @@
         if (volValEl && volSlider) volValEl.textContent = Math.round(volSlider.value * 100) + '%';
     }
 
-    function saveSettings() {
+    async function saveSettings() {
         try {
             const voiceIdx = voiceSelect ? voiceSelect.value : 0;
             const voice = voices[voiceIdx];
@@ -858,9 +1162,11 @@
                 vol: volSlider ? volSlider.value : 1,
                 pauseLines: pauseLinesEl ? pauseLinesEl.checked : true,
                 privateMode: !!privateMode,
-                voiceLocalOnly: !!voiceLocalOnly
+                voiceLocalOnly: !!voiceLocalOnly,
+                wipeOnExit: !!wipeOnExit
             };
-            localStorage.setItem('ttsSettings', JSON.stringify(settings));
+            // Persist via encrypted wrapper when enabled
+            await setEncryptedItem('ttsSettings', settings);
         } catch(e) {
             console.error('Error saving settings:', e);
         }
@@ -975,6 +1281,34 @@
             voiceLocalOnly = !!localOnlyToggle.checked;
             saveSettings();
             filterVoices();
+        });
+    }
+
+    // Clear sensitive data on unload/pagehide if enabled
+    function handleWipeOnExit() {
+        if (wipeOnExit) {
+            // silent clear — do not alert during unload
+            clearSensitiveData(true);
+        }
+    }
+
+    window.addEventListener('pagehide', () => { handleWipeOnExit(); }, {capture:true});
+    window.addEventListener('beforeunload', () => { handleWipeOnExit(); });
+
+    // Wire up Wipe-on-exit toggle
+    if (wipeOnExitToggle) {
+        wipeOnExitToggle.checked = !!wipeOnExit;
+        wipeOnExitToggle.addEventListener('change', () => {
+            const enabling = !!wipeOnExitToggle.checked;
+            if (enabling) {
+                const ok = confirm('Enable Wipe on exit? This will remove stored history and settings when you close the page. Export any data you need first.\n\nEnable Wipe on exit?');
+                if (!ok) {
+                    wipeOnExitToggle.checked = false;
+                    return;
+                }
+            }
+            wipeOnExit = enabling;
+            saveSettings();
         });
     }
 
@@ -2548,30 +2882,57 @@
         }
     });
     
-    // === SENSITIVE DATA CLEAR ===
+    // === SENSITIVE DATA CLEAR (reusable) ===
+    async function clearSensitiveData(silent = false) {
+        try {
+            // Remove known plaintext keys
+            localStorage.removeItem('ttsHistory');
+            localStorage.removeItem('sttState');
+            localStorage.removeItem('ttsSettings');
+
+            // Remove any encrypted blobs prefixed with `enc:` (generic removal)
+            try {
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (typeof k === 'string' && k.startsWith('enc:')) keysToRemove.push(k);
+                }
+                for (const k of keysToRemove) localStorage.removeItem(k);
+            } catch (e) {
+                // ignore storage iteration errors
+            }
+
+            // Remove encryption metadata to fully reset encryption
+            try { localStorage.removeItem(ENC_META_KEY); } catch (e) {}
+
+            // Clear in-memory crypto key and flags so encryption won't be used
+            try { masterKey = null; encryptionEnabled = false; } catch (e) {}
+
+            // Clear in-memory copies and reset minimal settings
+            history = [];
+            settings = { privateMode: !!privateMode, voiceLocalOnly: !!voiceLocalOnly, wipeOnExit: !!wipeOnExit };
+
+            // Persist minimal settings (will write plaintext because encryptionEnabled cleared)
+            await saveSettings();
+
+            // Update UI
+            try { renderHistory(); } catch(e) {}
+            if (textInput) textInput.innerHTML = '';
+            if (reader) reader.innerHTML = '<span class="empty">Enter text in Edit tab</span>';
+            updateStats();
+            if (!silent) alert('Sensitive data and encryption metadata cleared.');
+        } catch (e) {
+            console.error('Error clearing sensitive data', e);
+            if (!silent) alert('Error clearing sensitive data (see console)');
+        }
+    }
+
     const clearSensitiveBtn = $('clearSensitiveBtn');
     if (clearSensitiveBtn) {
         clearSensitiveBtn.addEventListener('click', () => {
             const ok = confirm('This will permanently remove stored history and settings (except current Private Mode state). Proceed?');
             if (!ok) return;
-            try {
-                localStorage.removeItem('ttsHistory');
-                localStorage.removeItem('sttState');
-                localStorage.removeItem('ttsSettings');
-                // Clear in-memory copies
-                history = [];
-                settings = { privateMode: !!privateMode };
-                saveSettings();
-                // Update UI
-                try { renderHistory(); } catch(e) {}
-                if (textInput) textInput.innerHTML = '';
-                if (reader) reader.innerHTML = '<span class="empty">Enter text in Edit tab</span>';
-                updateStats();
-                alert('Sensitive data cleared.');
-            } catch (e) {
-                console.error('Error clearing sensitive data', e);
-                alert('Error clearing sensitive data (see console)');
-            }
+            clearSensitiveData(false);
         });
     }
 
