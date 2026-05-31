@@ -10,12 +10,12 @@
         compute the SHA-256 hash of the final inline script content and include it in the header:
 
         Example header (nginx):
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-5q4HVccPii38bO2TnHZW7HUGHzgEMjHuhK0R2PnkS08='; style-src 'self' 'sha256-ghWCkruA05TSN3MEvxDe4UwtIGWxOSo4QSG9FxDmYlo='; worker-src 'self' blob:; img-src 'self' data:; connect-src 'self';";
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-/tm/h8Vg9vXKRkBFHHs/WI8VL0cGV7IiMChDYaSWue0='; style-src 'self' 'sha256-XFT83fuY6sCyMCg4Q/fabrwE61X8GKp+2KVxDrQL2Dg='; worker-src 'self' blob:; img-src 'self' data:; connect-src 'self';";
 
         Current frozen block hashes:
-        style-src:  sha256-ghWCkruA05TSN3MEvxDe4UwtIGWxOSo4QSG9FxDmYlo=
+        style-src:  sha256-XFT83fuY6sCyMCg4Q/fabrwE61X8GKp+2KVxDrQL2Dg=
         sanitizer:  sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=
-        app script: sha256-5q4HVccPii38bO2TnHZW7HUGHzgEMjHuhK0R2PnkS08=
+        app script: sha256-/tm/h8Vg9vXKRkBFHHs/WI8VL0cGV7IiMChDYaSWue0=
 
         Any change to the inline style block, sanitizer script block, or app script block
         requires recomputing the matching hash.
@@ -27,14 +27,33 @@
             --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
             --bg: #f8fafc; --surface: #ffffff; --text: #1e293b; --text-muted: #64748b;
             --border: #e2e8f0; --highlight: #fef08a; --highlight-border: #eab308;
+            --input-bg: #ffffff; --soft-bg: #f1f5f9; --reader-bg: #fffbeb;
+            --tip-bg: #fef3c7; --tip-text: #92400e; --hover-bg: #e2e8f0;
+            --danger-soft-bg: #fef2f2; --danger-soft-border: #fecaca; --danger-soft-text: #7f1d1d;
+            --success-soft-bg: #f0fdf4; --success-soft-border: #86efac;
+            --warning-soft-bg: #fefce8; --warning-soft-border: #fde047;
+            --shadow: rgba(0,0,0,0.1); --card-shadow: rgba(0,0,0,0.08);
             --header-height: 125px;
+        }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --primary: #818cf8; --primary-hover: #6366f1; --secondary: #94a3b8;
+            --success: #34d399; --danger: #f87171; --warning: #fbbf24;
+            --bg: #000000; --surface: #0a0a0a; --text: #f3f4f6; --text-muted: #a1a1aa;
+            --border: #27272a; --highlight: #713f12; --highlight-border: #facc15;
+            --input-bg: #050505; --soft-bg: #111111; --reader-bg: #050505;
+            --tip-bg: #422006; --tip-text: #fde68a; --hover-bg: #334155;
+            --danger-soft-bg: #450a0a; --danger-soft-border: #7f1d1d; --danger-soft-text: #fecaca;
+            --success-soft-bg: #052e16; --success-soft-border: #166534;
+            --warning-soft-bg: #422006; --warning-soft-border: #854d0e;
+            --shadow: rgba(0,0,0,0.45); --card-shadow: rgba(0,0,0,0.35);
         }
         html, body { width: 100%; height: 100%; overflow-x: hidden; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
 
         .fixed-header {
             position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-            background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: var(--surface); box-shadow: 0 2px 8px var(--shadow);
             padding: 10px 16px; padding-top: max(10px, env(safe-area-inset-top));
         }
         .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
@@ -60,7 +79,7 @@
         .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), #818cf8); transition: width 0.1s; }
         .progress-text { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; }
 
-        .status { display: flex; align-items: center; gap: 5px; font-size: 0.7rem; font-weight: 500; padding: 3px 8px; border-radius: 10px; background: #f1f5f9; color: var(--secondary); }
+        .status { display: flex; align-items: center; gap: 5px; font-size: 0.7rem; font-weight: 500; padding: 3px 8px; border-radius: 10px; background: var(--soft-bg); color: var(--secondary); }
         .status.speaking { background: #dbeafe; color: #2563eb; }
         .status.paused { background: #fef3c7; color: #d97706; }
         .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
@@ -69,7 +88,7 @@
 
         .scroll-area { margin-top: var(--header-height); padding: 12px; padding-bottom: env(safe-area-inset-bottom, 12px); }
         .container { max-width: 900px; margin: 0 auto; }
-        .card { background: var(--surface); border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); padding: 14px; margin-bottom: 12px; overflow: hidden; }
+        .card { background: var(--surface); border-radius: 12px; box-shadow: 0 2px 6px var(--card-shadow); padding: 14px; margin-bottom: 12px; overflow: hidden; }
         .card-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
 
         .tabs { display: flex; gap: 5px; margin-bottom: 10px; }
@@ -90,7 +109,8 @@
             font-size: 16px;
             line-height: 1.6;
             font-family: inherit;
-            background: white;
+            background: var(--input-bg);
+            color: var(--text);
         }
         #textInput:focus { outline: none; border-color: var(--primary); }
         #textInput:empty:before {
@@ -129,7 +149,8 @@
         .toolbar-btn {
             padding: 4px 8px;
             border: 1px solid var(--border);
-            background: white;
+            background: var(--input-bg);
+            color: var(--text);
             border-radius: 4px;
             cursor: pointer;
             font-size: 0.8rem;
@@ -144,15 +165,15 @@
 
         .text-info { display: flex; gap: 10px; margin-top: 6px; font-size: 0.7rem; color: var(--text-muted); }
         .text-btns { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
-        .btn-sm { padding: 5px 10px; font-size: 0.7rem; border: 1px solid var(--border); background: white; border-radius: 5px; cursor: pointer; }
+        .btn-sm { padding: 5px 10px; font-size: 0.7rem; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); border-radius: 5px; cursor: pointer; }
         .btn-sm:hover { background: var(--bg); }
         .btn-sm.active { background: var(--primary); color: white; border-color: var(--primary); }
 
         .upload-area { margin-top: 8px; padding: 12px; border: 2px dashed var(--border); border-radius: 8px; text-align: center; cursor: pointer; font-size: 0.75rem; color: var(--text-muted); }
-        .upload-area:hover { border-color: var(--primary); background: #f5f3ff; }
+        .upload-area:hover { border-color: var(--primary); background: var(--soft-bg); }
         .upload-area input { display: none; }
 
-        .reader { min-height: 120px; max-height: 280px; overflow-y: auto; padding: 10px; border: 2px solid var(--primary); border-radius: 8px; font-size: 1.1rem; line-height: 1.8; background: #fffbeb; }
+        .reader { min-height: 120px; max-height: 280px; overflow-y: auto; padding: 10px; border: 2px solid var(--primary); border-radius: 8px; font-size: 1.1rem; line-height: 1.8; background: var(--reader-bg); color: var(--text); }
         .reader h1, .reader h2, .reader h3, .reader h4, .reader h5, .reader h6 { margin: 0.5em 0 0.3em 0; line-height: 1.3; }
         .reader h1 { font-size: 1.4em; }
         .reader h2 { font-size: 1.25em; }
@@ -165,11 +186,11 @@
         .reader em, .reader i { font-style: italic; }
         .reader u { text-decoration: underline; }
         .w { display: inline; padding: 1px 3px; border-radius: 3px; cursor: pointer; }
-        .w:hover { background: #e2e8f0; }
+        .w:hover { background: var(--hover-bg); }
         .w.on { background: var(--highlight); border-bottom: 2px solid var(--highlight-border); font-weight: 600; }
         .w.on:hover { background: var(--highlight); }
         .w.done { color: #9ca3af; }
-        .w.done:hover { background: #e2e8f0; color: var(--text); }
+        .w.done:hover { background: var(--hover-bg); color: var(--text); }
         .reader-opts { display: flex; gap: 10px; align-items: center; margin-top: 6px; font-size: 0.75rem; flex-wrap: wrap; }
         .reader-opts label { display: flex; align-items: center; gap: 4px; }
         .reader-opts select { padding: 3px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.75rem; }
@@ -184,7 +205,7 @@
         @media (max-width: 500px) { .voice-grid { grid-template-columns: 1fr; } }
         .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; width: 100%; }
         .field label { font-size: 0.75rem; font-weight: 500; }
-        .field select, .field input[type="text"] { width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px; background: white; min-width: 0; }
+        .field select, .field input[type="text"] { width: 100%; padding: 8px; border: 2px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--input-bg); color: var(--text); min-width: 0; }
         .field select:focus, .field input[type="text"]:focus { outline: none; border-color: var(--primary); }
         .slider-row { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; }
         .slider-row input[type="range"] { flex: 1; height: 5px; border-radius: 3px; background: var(--border); -webkit-appearance: none; -moz-appearance: none; appearance: none; min-width: 0; }
@@ -200,10 +221,10 @@
         .voice-count { font-size: 0.7rem; color: var(--text-muted); padding: 4px 0; }
 
         .presets { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
-        .preset { padding: 5px 10px; border: 2px solid var(--border); background: white; border-radius: 14px; font-size: 0.7rem; cursor: pointer; }
+        .preset { padding: 5px 10px; border: 2px solid var(--border); background: var(--input-bg); color: var(--text); border-radius: 14px; font-size: 0.7rem; cursor: pointer; }
         .preset.on { background: var(--primary); border-color: var(--primary); color: white; }
 
-        .tip { background: #fef3c7; border-radius: 6px; padding: 8px; margin-top: 10px; font-size: 0.7rem; color: #92400e; }
+        .tip { background: var(--tip-bg); border-radius: 6px; padding: 8px; margin-top: 10px; font-size: 0.7rem; color: var(--tip-text); }
         .tip summary { cursor: pointer; font-weight: 600; }
         .tip ul { margin: 6px 0 0 14px; }
 
@@ -221,7 +242,7 @@
         .collapse-body { max-height: 0; overflow: hidden; transition: max-height 0.3s; }
         .collapse-body.open { max-height: 400px; }
 
-        .ios-note { background: #fef3c7; border-radius: 6px; padding: 8px; margin-bottom: 10px; font-size: 0.75rem; color: #92400e; }
+        .ios-note { background: var(--tip-bg); border-radius: 6px; padding: 8px; margin-bottom: 10px; font-size: 0.75rem; color: var(--tip-text); }
         .hidden { display: none !important; }
 
         @media (max-width: 500px) { :root { --header-height: 115px; } .header-title { font-size: 1rem; } }
@@ -229,10 +250,23 @@
         /* Modal for encryption/passphrase */
         .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 9999; }
         .modal-backdrop.open { display: flex; }
-        .modal { background: white; border-radius: 8px; padding: 16px; max-width: 420px; width: 92%; box-shadow: 0 6px 24px rgba(0,0,0,0.2); }
+        .modal { background: var(--surface); color: var(--text); border-radius: 8px; padding: 16px; max-width: 420px; width: 92%; box-shadow: 0 6px 24px rgba(0,0,0,0.2); }
         .modal h3 { margin-bottom: 8px; font-size: 1rem; }
         .modal .row { margin-bottom: 8px; }
-        .modal input[type="password"], .modal input[type="text"] { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
+        .modal input[type="password"], .modal input[type="text"] { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
+
+        :root[data-theme="dark"] .badge-green { background: #064e3b; color: #a7f3d0; }
+        :root[data-theme="dark"] .badge-blue { background: #1e3a8a; color: #bfdbfe; }
+        :root[data-theme="dark"] .status.speaking { background: #1e3a8a; color: #bfdbfe; }
+        :root[data-theme="dark"] .status.paused { background: #422006; color: #fde68a; }
+        :root[data-theme="dark"] #sttPrivacyWarning > div { background: var(--danger-soft-bg) !important; border-color: var(--danger-soft-border) !important; }
+        :root[data-theme="dark"] #sttPrivacyWarning div,
+        :root[data-theme="dark"] #sttPrivacyWarning p,
+        :root[data-theme="dark"] #sttPrivacyWarning summary { color: var(--danger-soft-text) !important; }
+        :root[data-theme="dark"] #sttModeIndicator,
+        :root[data-theme="dark"] #sttOutput { background: var(--warning-soft-bg) !important; border-color: var(--warning-soft-border) !important; color: var(--tip-text) !important; }
+        :root[data-theme="dark"] #sttControls div[style*="background:#f0fdf4"] { background: var(--success-soft-bg) !important; border-color: var(--success-soft-border) !important; }
+        :root[data-theme="dark"] kbd { background: var(--hover-bg) !important; color: var(--text) !important; }
         .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
 
     </style>
@@ -319,6 +353,10 @@
                 <span class="badge" id="sttBadge" style="background:#fef3c7;color:#92400e;" title="Voice Input disabled by default for privacy">STT Off</span>
                                 <span class="badge badge-blue" id="platform">-</span>
                                 <span class="badge" id="encStatus" title="Encryption status">🔒 Locked</span>
+                                <label title="Dark Mode" style="display:flex;align-items:center;gap:6px;font-size:0.7rem;margin-left:8px;">
+                                    <input type="checkbox" id="themeToggle" style="width:14px;height:14px;">
+                                    Dark
+                                </label>
                                 <label title="Private Mode" style="display:flex;align-items:center;gap:6px;font-size:0.7rem;margin-left:8px;">
                                     <input type="checkbox" id="privateModeToggle" style="width:14px;height:14px;">
                                     Private
@@ -629,6 +667,7 @@
     let voiceLocalOnly = false;
     // Wipe on exit: clear sensitive storage when the page is closed
     let wipeOnExit = false;
+    let theme = 'light';
 
     // Sanitize helper using inlined DOMPurify-like sanitizer
     function sanitizeHtml(html) {
@@ -707,17 +746,24 @@
         try {
             localStorage.setItem(PLAINTEXT_PREFS_KEY, JSON.stringify({
                 privateMode: !!privateMode,
-                wipeOnExit: !!wipeOnExit
+                wipeOnExit: !!wipeOnExit,
+                theme
             }));
         } catch(e) {
             console.warn('Could not persist privacy preferences', e);
         }
     }
 
+    function applyTheme(nextTheme) {
+        theme = nextTheme === 'dark' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+    }
+
     function loadPrivacyPrefs() {
         const prefs = readJsonKey(PLAINTEXT_PREFS_KEY, {});
         privateMode = !!prefs.privateMode;
         wipeOnExit = !!prefs.wipeOnExit;
+        applyTheme(prefs.theme || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
     }
 
     function setKeyDerivationBusy(isBusy, message) {
@@ -980,6 +1026,7 @@
     const prog = $('prog');
     const localOnlyToggle = $('localOnlyToggle');
     const wipeOnExitToggle = $('wipeOnExitToggle');
+    const themeToggle = $('themeToggle');
 
     // Encryption UI elements
     const encStatusEl = $('encStatus');
@@ -1034,6 +1081,7 @@
         const pauseLinesEl = $('pauseLines');
         if (pauseLinesEl) pauseLinesEl.checked = settings.pauseLines !== false;
         if (localOnlyToggle) localOnlyToggle.checked = !!voiceLocalOnly;
+        if (themeToggle) themeToggle.checked = theme === 'dark';
         if (privateModeToggle) privateModeToggle.checked = !!privateMode;
         if (wipeOnExitToggle) wipeOnExitToggle.checked = !!wipeOnExit;
         try { updateSliderLabels(); } catch(e) {}
@@ -1528,6 +1576,14 @@
         textInput.addEventListener('input', updateStats);
     }
     updateStats();
+
+    if (themeToggle) {
+        themeToggle.checked = theme === 'dark';
+        themeToggle.addEventListener('change', () => {
+            applyTheme(themeToggle.checked ? 'dark' : 'light');
+            persistPrivacyPrefs();
+        });
+    }
 
     // Wire up Private Mode toggle (do not persist history when enabled)
     const privateModeToggle = $('privateModeToggle');
@@ -2398,7 +2454,7 @@
             }
             
             // Switch to Edit tab so user can see text being added
-            const editTab = $('editTab');
+            const editTab = $('tabEdit');
             if (editTab) editTab.click();
             
             // Focus the text input
@@ -2426,6 +2482,24 @@
         
         recognition.onspeechstart = () => {
             if (sttStatus) sttStatus.textContent = '🔴 Speech detected - processing...';
+        };
+
+        recognition.onspeechend = () => {
+            if (sttStatus && isListening) sttStatus.textContent = '🔴 Speech ended - waiting for result...';
+        };
+
+        recognition.onsoundend = () => {
+            if (sttStatus && isListening) sttStatus.textContent = '🔴 Sound ended - keep speaking or wait for transcript...';
+        };
+
+        recognition.onaudioend = () => {
+            if (sttStatus && isListening) sttStatus.textContent = '🔴 Microphone audio ended - restarting if continuous mode is on...';
+        };
+
+        recognition.onnomatch = () => {
+            if (sttStatus) {
+                sttStatus.textContent = '⚠️ Heard audio but could not match speech. Try speaking more clearly, selecting a specific language, or checking browser speech settings.';
+            }
         };
         
         recognition.onresult = (event) => {
@@ -2574,7 +2648,15 @@
         }
     }
     
-    function startListening() {
+    async function checkMicrophoneAccess() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('Microphone access is not available in this browser/context.');
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+    }
+
+    async function startListening() {
         if (!sttEnabled) {
             // Open STT section if it's collapsed
             const sttBody = $('sttBody');
@@ -2612,9 +2694,11 @@
         recognition.lang = lang || navigator.language || 'en-US';
         recognition.continuous = sttContinuous ? sttContinuous.checked : false;
         
-        if (sttStatus) sttStatus.textContent = '🎤 Starting microphone...';
+        if (sttStatus) sttStatus.textContent = '🎤 Checking microphone permission...';
         
         try {
+            await checkMicrophoneAccess();
+            if (sttStatus) sttStatus.textContent = '🎤 Starting speech recognition...';
             recognition.start();
             isListening = true;
         } catch(e) {
@@ -2629,6 +2713,10 @@
                         if (sttStatus) sttStatus.innerHTML = '❌ Error: ' + e2.message;
                     }
                 }, 100);
+            } else if (e.name === 'NotAllowedError' || e.name === 'SecurityError') {
+                if (sttStatus) sttStatus.innerHTML = '❌ Microphone permission denied. Allow microphone access from the browser address bar, then try again.';
+            } else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
+                if (sttStatus) sttStatus.innerHTML = '❌ No microphone found. Connect or enable a microphone, then try again.';
             } else {
                 if (sttStatus) sttStatus.innerHTML = '❌ Error: ' + e.message;
             }
@@ -3309,7 +3397,8 @@
             if (bundle.privacyPrefs) {
                 localStorage.setItem(PLAINTEXT_PREFS_KEY, JSON.stringify({
                     privateMode: !!bundle.privacyPrefs.privateMode,
-                    wipeOnExit: !!bundle.privacyPrefs.wipeOnExit
+                    wipeOnExit: !!bundle.privacyPrefs.wipeOnExit,
+                    theme: bundle.privacyPrefs.theme === 'dark' ? 'dark' : 'light'
                 }));
             }
 

@@ -30,6 +30,7 @@ A privacy-focused, browser-based text-to-speech and voice input application.
 - **📱 Cross-Platform** - Works on Windows, macOS, iOS, Android, ChromeOS
 - **🎨 Presets** - Quick settings for Normal, Slow, Fast, Deep, and High voices
 - **🔧 Formatting Toolbar** - Bold, italic, underline, lists, headings, quotes
+- **🌙 Dark Mode** - Toggle a low-light theme; preference is stored locally
 
 ### 🎤 Voice Input (Speech-to-Text)
 - **🔒 Disabled by Default** - Must explicitly enable after reading privacy notice
@@ -338,7 +339,7 @@ Privacy-first, single-file browser TTS + optional local STT (experimental).
 
 ## Developer notes (storage keys & migration)
 - `enc_meta` contains salt (base64), iterations, version, and creation time
-- `ttsPrivacyPrefs` is intentionally plaintext and only stores `privateMode` and `wipeOnExit` so privacy preferences can be enforced before encrypted state is unlocked
+- `ttsPrivacyPrefs` is intentionally plaintext and only stores `privateMode`, `wipeOnExit`, and `theme` so privacy and display preferences can be enforced before encrypted state is unlocked
 - Encrypted blobs use keys of the form `enc:<originalKey>` such as `enc:ttsHistory`, `enc:ttsSettings`, and `enc:sttState`
 - On enable: plaintext keys are encrypted, verified, then removed
 - To completely reset encryption, use Reset or Clear Sensitive Data; both remove `enc_meta` and all `enc:` keys
@@ -354,14 +355,14 @@ Privacy-first, single-file browser TTS + optional local STT (experimental).
 - Current frozen hashes for `v1.6-experimental/index.html`:
 
 ```text
-style-src  'sha256-ghWCkruA05TSN3MEvxDe4UwtIGWxOSo4QSG9FxDmYlo='
-script-src 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-5q4HVccPii38bO2TnHZW7HUGHzgEMjHuhK0R2PnkS08='
+style-src  'sha256-XFT83fuY6sCyMCg4Q/fabrwE61X8GKp+2KVxDrQL2Dg='
+script-src 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-/tm/h8Vg9vXKRkBFHHs/WI8VL0cGV7IiMChDYaSWue0='
 ```
 
 Example header:
 
 ```text
-Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-5q4HVccPii38bO2TnHZW7HUGHzgEMjHuhK0R2PnkS08='; style-src 'self' 'sha256-ghWCkruA05TSN3MEvxDe4UwtIGWxOSo4QSG9FxDmYlo='; worker-src 'self' blob:; img-src 'self' data:; connect-src 'self';
+Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-/tm/h8Vg9vXKRkBFHHs/WI8VL0cGV7IiMChDYaSWue0='; style-src 'self' 'sha256-XFT83fuY6sCyMCg4Q/fabrwE61X8GKp+2KVxDrQL2Dg='; worker-src 'self' blob:; img-src 'self' data:; connect-src 'self';
 ```
 
 Any change inside the style block or either script block requires recomputing the matching hash.
