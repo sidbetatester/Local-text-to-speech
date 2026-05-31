@@ -183,25 +183,13 @@ Supported formats:
 
 Maximum file size: 5MB
 
-## 🌐 Hosting
-
-### Netlify (Easiest)
-1. Go to [app.netlify.com/drop](https://app.netlify.com/drop)
-2. Drag and drop `index.html`
-3. Done! You get an instant HTTPS URL
-
-### GitHub Pages (Recommended for Permanent Hosting)
-1. Create a new GitHub repository
-2. Upload this folder's `index.html`
-3. Go to Settings → Pages
-4. Select "Deploy from a branch" → main
-5. Your site will be live at `https://yourusername.github.io/repo-name`
-
-### Other Free Options
+## Hosting Free Options for my reference
 - Vercel
 - Cloudflare Pages
 - Render
 - Surge.sh
+- Netlify
+- GitHub Pages 
 
 ## 🔐 Privacy & Security
 
