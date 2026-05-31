@@ -6,7 +6,7 @@ A privacy-focused, browser-based text-to-speech and voice input application.
 - ✅ **Text-to-Speech (TTS)**: 100% local - no data ever leaves your device
 - ⚠️ **Voice Input (STT)**: Disabled by default. When enabled, may use cloud servers unless you configure offline mode on your device
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: Source Available](https://img.shields.io/badge/License-Source--Available-orange.svg)](../LICENSE)
 [![GitHub](https://img.shields.io/badge/GitHub-sidbetatester-black.svg)](https://github.com/sidbetatester)
 
 **Repository:** [github.com/sidbetatester/Local-text-to-speech](https://github.com/sidbetatester/Local-text-to-speech)
@@ -249,15 +249,15 @@ Settings → Accessibility → Text-to-speech output
 
 ## 📝 License
 
-This project is licensed under the **GNU General Public License v3.0** (GPL-3.0).
+This project is licensed under the **Local-Text-to-Speech Source-Available License v1.0**.
 
 This means:
-- ✅ Free to use, modify, and distribute
-- ✅ Attribution required - credit to [sidbetatester](https://github.com/sidbetatester)
-- ✅ Derivatives must also be open source under GPL-3.0
-- ✅ Commercial use allowed, but must remain open source
+- Source code is available to view and study.
+- Personal, non-commercial use of unmodified copies is allowed.
+- Modification, redistribution, public hosting, and commercial use require prior written permission.
+- Attribution and license notices must be preserved.
 
-See [LICENSE](LICENSE) file or [gnu.org/licenses/gpl-3.0](https://www.gnu.org/licenses/gpl-3.0) for details.
+See the [LICENSE](../LICENSE) file for details.
 
 **Copyright © 2025 Sid ([@sidbetatester](https://github.com/sidbetatester))**
 

@@ -10,10 +10,15 @@
         compute the SHA-256 hash of the final inline script content and include it in the header:
 
         Example header (nginx):
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-<BASE64_HASH>'; style-src 'self' 'sha256-<STYLE_HASH>'; img-src 'self' data:; connect-src 'self' https:;";
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-5q4HVccPii38bO2TnHZW7HUGHzgEMjHuhK0R2PnkS08='; style-src 'self' 'sha256-ghWCkruA05TSN3MEvxDe4UwtIGWxOSo4QSG9FxDmYlo='; worker-src 'self' blob:; img-src 'self' data:; connect-src 'self';";
 
-        Replace <BASE64_HASH> with the base64-encoded SHA-256 digest of the inline <script> contents.
-        Note: any change to the file requires recomputing these hashes.
+        Current frozen block hashes:
+        style-src:  sha256-ghWCkruA05TSN3MEvxDe4UwtIGWxOSo4QSG9FxDmYlo=
+        sanitizer:  sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=
+        app script: sha256-5q4HVccPii38bO2TnHZW7HUGHzgEMjHuhK0R2PnkS08=
+
+        Any change to the inline style block, sanitizer script block, or app script block
+        requires recomputing the matching hash.
     -->
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -241,8 +246,20 @@
             try {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
-                const allowedTags = (cfg && cfg.ALLOWED_TAG) || (cfg && cfg.ALLOWED_TAGS) || ['b','i','u','em','strong','p','br','ul','ol','li','h1','h2','h3','h4','h5','h6','blockquote','table','thead','tbody','tr','th','td','a','img'];
-                const allowedAttrs = (cfg && cfg.ALLOWED_ATTR) || ['href','src','alt','title','target'];
+                const allowedTags = (cfg && cfg.ALLOWED_TAG) || (cfg && cfg.ALLOWED_TAGS) || ['b','i','u','em','strong','p','br','ul','ol','li','h1','h2','h3','h4','h5','h6','blockquote','table','thead','tbody','tr','th','td','a'];
+                const allowedAttrs = (cfg && cfg.ALLOWED_ATTR) || ['href','title','target','rel'];
+
+                function isSafeUrl(value) {
+                    if (!value) return false;
+                    try {
+                        const trimmed = value.trim();
+                        if (trimmed.startsWith('//')) return false;
+                        const parsed = new URL(trimmed, window.location.href);
+                        return ['http:', 'https:', 'mailto:'].indexOf(parsed.protocol) !== -1;
+                    } catch(e) {
+                        return false;
+                    }
+                }
 
                 function cleanNode(node){
                     if (node.nodeType === Node.ELEMENT_NODE){
@@ -262,14 +279,17 @@
                                 node.removeAttribute(attr.name);
                                 return;
                             }
-                            // Basic URL protocol filter for href/src
-                            if ((an === 'href' || an === 'src') && node.getAttribute(attr.name)){
+                            // Basic URL protocol filter for href
+                            if (an === 'href' && node.getAttribute(attr.name)){
                                 const v = node.getAttribute(attr.name).trim();
-                                if (v.indexOf('javascript:') === 0 || v.indexOf('data:') === 0) {
+                                if (!isSafeUrl(v)) {
                                     node.removeAttribute(attr.name);
                                 }
                             }
                         });
+                        if (name === 'a' && node.getAttribute('target') === '_blank') {
+                            node.setAttribute('rel', 'noopener noreferrer');
+                        }
                     }
                     // Recurse
                     let child = node.firstChild;
@@ -455,7 +475,7 @@
                                     I understand, enable Voice Input
                                 </button>
                                 <button id="sttEnableOfflineBtn" class="btn" style="background:#16a34a;color:white;font-size:0.75rem;padding:8px 16px;">
-                                    ✅ I've enabled offline mode, proceed
+                                    ✅ I've configured device offline mode
                                 </button>
                             </div>
                         </div>
@@ -464,7 +484,7 @@
                     <!-- STT Controls (hidden until enabled) -->
                     <div id="sttControls" style="display:none;">
                         <div id="sttModeIndicator" style="background:#fefce8;border:1px solid #fde047;border-radius:6px;padding:8px;margin-bottom:10px;font-size:0.75rem;">
-                            <span id="sttModeText">⚠️ Voice may be processed in cloud. <a href="#" id="sttShowOfflineGuide" style="color:#0066cc;">Enable offline mode</a> for local processing.</span>
+                            <span id="sttModeText">⚠️ Voice may be processed in cloud. <a href="#" id="sttShowOfflineGuide" style="color:#0066cc;">Configure device offline mode</a> to reduce cloud processing.</span>
                         </div>
                         
                         <div class="stt-status" id="sttStatus" style="padding:8px 0;font-size:0.85rem;color:var(--text-muted);">
@@ -541,14 +561,18 @@
                     <div class="hist-list" id="histList"><div class="empty">No history</div></div>
                     <div style="margin-top:8px;">
                         <button class="btn-sm" id="clearHistBtn">Clear All History</button>
+                        <button class="btn-sm" id="exportBackupBtn" style="margin-left:8px;">Export Backup</button>
+                        <button class="btn-sm" id="importBackupBtn" style="margin-left:8px;">Import Backup</button>
+                        <button class="btn-sm" id="wipeNowBtn" style="margin-left:8px;background:#f97316;color:white;">Wipe Now</button>
                         <button class="btn-sm" id="clearSensitiveBtn" style="margin-left:8px;background:#ef4444;color:white;">Clear Sensitive Data</button>
+                        <input type="file" id="backupImportInput" accept=".json,application/json" style="display:none;">
                     </div>
                 </div>
             </div>
             
             <div style="text-align:center;padding:16px 0 8px;font-size:0.7rem;color:var(--text-muted);">
                 <a href="https://github.com/sidbetatester/Local-text-to-speech" target="_blank" style="color:var(--primary);text-decoration:none;">GitHub</a> · 
-                GPL-3.0 License · 
+                Source-Available License ·
                 © 2025 <a href="https://github.com/sidbetatester" target="_blank" style="color:var(--primary);text-decoration:none;">Sid</a>
             </div>
         </div>
@@ -566,6 +590,7 @@
                     <div class="row" id="encConfirmRow" style="display:none;">
                         <input type="password" id="encPassConfirm" placeholder="Confirm passphrase" autocomplete="new-password">
                     </div>
+                    <div class="row" id="encStatusMsg" style="display:none;font-size:0.75rem;color:var(--text-muted);"></div>
                     <div class="actions">
                         <button id="encCancelBtn" class="btn-sm">Cancel</button>
                         <button id="encResetBtn" class="btn-sm" style="background:#ef4444;color:white;display:none;margin-right:auto;">Reset (delete encrypted data)</button>
@@ -610,139 +635,335 @@
         if (!html) return '';
         if (window.DOMPurify && typeof DOMPurify.sanitize === 'function') {
             return DOMPurify.sanitize(html, {
-                ALLOWED_TAGS: ['b','i','u','em','strong','p','br','ul','ol','li','h1','h2','h3','h4','h5','h6','blockquote','table','thead','tbody','tr','th','td','a','img'],
-                ALLOWED_ATTR: ['href','src','alt','title','target']
+                ALLOWED_TAGS: ['b','i','u','em','strong','p','br','ul','ol','li','h1','h2','h3','h4','h5','h6','blockquote','table','thead','tbody','tr','th','td','a'],
+                ALLOWED_ATTR: ['href','title','target','rel']
             });
         }
         return html.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    // --- Encryption / Web Crypto helpers (master-key approach) ---
-    let encryptionEnabled = false; // true if enc_meta present or user enabled
-    let masterKey = null; // CryptoKey cached in memory when unlocked
-    const ENC_META_KEY = 'enc_meta'; // stores {v:1, salt, iter}
-
-    function toB64(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
-    function fromB64(s){ const bin = atob(s); const arr = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); return arr.buffer; }
-
-    async function deriveMasterKeyFromPassphrase(passphrase, saltB64, iterations){
-        const enc = new TextEncoder();
-        const passKey = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
-        const salt = saltB64 ? new Uint8Array(atob(saltB64).split('').map(c=>c.charCodeAt(0))) : crypto.getRandomValues(new Uint8Array(16));
-        const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: iterations || 150000, hash: 'SHA-256' }, passKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt','decrypt']);
-        return { key, salt }; // salt is Uint8Array
-    }
-
-    async function encryptWithMaster(obj){
-        if (!masterKey) throw new Error('masterKey not available');
-        const iv = crypto.getRandomValues(new Uint8Array(12));
-        const enc = new TextEncoder();
-        const pt = enc.encode(JSON.stringify(obj));
-        const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, masterKey, pt);
-        return { v:1, iv: toB64(iv), ct: toB64(ct) };
-    }
-
-    async function decryptWithMaster(blob){
-        if (!masterKey) throw new Error('masterKey not available');
-        const iv = new Uint8Array(atob(blob.iv).split('').map(c=>c.charCodeAt(0)));
-        const ctBuf = fromB64(blob.ct);
-        const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, masterKey, ctBuf);
-        const dec = new TextDecoder();
-        return JSON.parse(dec.decode(new Uint8Array(plainBuf)));
-    }
-
-    // Storage wrappers
-    async function setEncryptedItem(key, obj){
-        try {
-            if (encryptionEnabled && masterKey){
-                const cipher = await encryptWithMaster(obj);
-                localStorage.setItem('enc:' + key, JSON.stringify(cipher));
-                return;
-            }
-            // fallback: plaintext
-            localStorage.setItem(key, JSON.stringify(obj));
-        } catch(e){ console.error('setEncryptedItem error', e); }
-    }
-
-    async function getEncryptedItem(key, fallback){
-        try {
-            if (encryptionEnabled){
-                const raw = localStorage.getItem('enc:' + key);
-                if (!raw) return fallback;
-                const blob = JSON.parse(raw);
-                if (!masterKey) return fallback; // locked
-                try {
-                    const dec = await decryptWithMaster(blob);
-                    return dec;
-                } catch(e){ console.warn('decrypt failed', e); return fallback; }
-            }
-            return safeParseJSON(localStorage.getItem(key), fallback);
-        } catch(e){ return fallback; }
-    }
-
-    async function enableEncryptionWithPassphrase(passphrase, iterations){
-        // create master salt and derive masterKey
-        const salt = crypto.getRandomValues(new Uint8Array(16));
-        const saltB64 = toB64(salt);
-        const meta = { v:1, salt: saltB64, iter: iterations || 150000 };
-        localStorage.setItem(ENC_META_KEY, JSON.stringify(meta));
-        encryptionEnabled = true;
-        const res = await deriveMasterKeyFromPassphrase(passphrase, saltB64, meta.iter);
-        masterKey = res.key;
-        // migrate known plaintext keys if present
-        const migrateKeys = ['ttsSettings','ttsHistory','sttState'];
-        for (const k of migrateKeys){
-            const raw = localStorage.getItem(k);
-            if (raw){
-                try {
-                    const obj = safeParseJSON(raw, null);
-                    if (obj !== null){
-                        await setEncryptedItem(k, obj);
-                        localStorage.removeItem(k);
-                    }
-                } catch(e){}
-            }
-        }
-    }
-
-    async function unlockEncryption(passphrase){
-        const metaRaw = localStorage.getItem(ENC_META_KEY);
-        if (!metaRaw) return false;
-        const meta = safeParseJSON(metaRaw, null);
-        if (!meta) return false;
-        try {
-            const res = await deriveMasterKeyFromPassphrase(passphrase, meta.salt, meta.iter);
-            masterKey = res.key; encryptionEnabled = true; return true;
-        } catch(e){ console.warn('unlock failed', e); return false; }
-    }
-
-    function lockEncryption(){ masterKey = null; }
-
-    // Check if enc_meta present at startup
-    try { encryptionEnabled = !!localStorage.getItem(ENC_META_KEY); } catch(e){ encryptionEnabled = false; }
-
     function safeParseJSON(str, fallback) {
         try {
             const result = JSON.parse(str);
-            return result || fallback;
+            return result === undefined || result === null ? fallback : result;
         } catch(e) {
             return fallback;
         }
     }
 
-    // Attempt to load encrypted items if encryption is enabled; fall back to plaintext.
-    history = await getEncryptedItem('ttsHistory', safeParseJSON(localStorage.getItem('ttsHistory'), []));
-    if (!Array.isArray(history)) history = [];
+    // --- Encryption / Web Crypto helpers (master-key approach) ---
+    const APP_VERSION = 'v1.6-production';
+    const BACKUP_FORMAT = 'local-tts-backup';
+    const BACKUP_VERSION = 1;
+    const DEFAULT_KDF_ITERATIONS = 150000;
+    const ENC_META_KEY = 'enc_meta';
+    const VERIFY_KEY = '__verify';
+    const PLAINTEXT_PREFS_KEY = 'ttsPrivacyPrefs';
+    const ENCRYPTED_DATA_KEYS = ['ttsSettings', 'ttsHistory', 'sttState'];
+    let encryptionEnabled = false; // true if enc_meta is present or user enabled encryption
+    let masterKey = null; // CryptoKey cached in memory when unlocked
+    let persistedSttState = {};
+    let keyDerivationTimer = null;
+    let keyDerivationStartedAt = 0;
 
-    settings = await getEncryptedItem('ttsSettings', safeParseJSON(localStorage.getItem('ttsSettings'), {}));
+    function toB64(buf) {
+        const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+        }
+        return btoa(binary);
+    }
+
+    function fromB64Bytes(s) {
+        const bin = atob(s);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return arr;
+    }
+
+    function fromB64(s) {
+        return fromB64Bytes(s).buffer;
+    }
+
+    function getEncryptedStorageKey(key) {
+        return 'enc:' + key;
+    }
+
+    function getAadForKey(key) {
+        return new TextEncoder().encode('local-tts:' + key + ':v2');
+    }
+
+    function readJsonKey(key, fallback) {
+        try {
+            return safeParseJSON(localStorage.getItem(key), fallback);
+        } catch(e) {
+            return fallback;
+        }
+    }
+
+    function persistPrivacyPrefs() {
+        try {
+            localStorage.setItem(PLAINTEXT_PREFS_KEY, JSON.stringify({
+                privateMode: !!privateMode,
+                wipeOnExit: !!wipeOnExit
+            }));
+        } catch(e) {
+            console.warn('Could not persist privacy preferences', e);
+        }
+    }
+
+    function loadPrivacyPrefs() {
+        const prefs = readJsonKey(PLAINTEXT_PREFS_KEY, {});
+        privateMode = !!prefs.privateMode;
+        wipeOnExit = !!prefs.wipeOnExit;
+    }
+
+    function setKeyDerivationBusy(isBusy, message) {
+        if (keyDerivationTimer) {
+            clearInterval(keyDerivationTimer);
+            keyDerivationTimer = null;
+        }
+        if (encActionBtn) encActionBtn.disabled = !!isBusy;
+        if (encCancelBtn) encCancelBtn.disabled = !!isBusy;
+        if (!encStatusMsg) return;
+        if (!isBusy) {
+            encStatusMsg.textContent = '';
+            encStatusMsg.style.display = 'none';
+            return;
+        }
+        keyDerivationStartedAt = Date.now();
+        encStatusMsg.style.display = '';
+        const render = () => {
+            const elapsed = Math.max(1, Math.ceil((Date.now() - keyDerivationStartedAt) / 1000));
+            encStatusMsg.textContent = (message || 'Deriving encryption key...') + ' (' + elapsed + 's)';
+        };
+        render();
+        keyDerivationTimer = setInterval(render, 1000);
+    }
+
+    async function deriveKeyOnMainThread(passphrase, saltB64, iterations) {
+        if (!crypto || !crypto.subtle) throw new Error('Web Crypto is unavailable in this browser/context');
+        const enc = new TextEncoder();
+        const salt = saltB64 ? fromB64Bytes(saltB64) : crypto.getRandomValues(new Uint8Array(16));
+        const passKey = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveBits']);
+        const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: iterations || DEFAULT_KDF_ITERATIONS, hash: 'SHA-256' }, passKey, 256);
+        const key = await crypto.subtle.importKey('raw', bits, { name: 'AES-GCM' }, false, ['encrypt','decrypt']);
+        return { key, salt };
+    }
+
+    async function deriveKeyInWorker(passphrase, saltB64, iterations) {
+        if (!window.Worker || !window.Blob || !window.URL) throw new Error('Worker derivation unavailable');
+        const workerScript = `
+            self.onmessage = async (event) => {
+                try {
+                    const { passphrase, saltB64, iterations } = event.data;
+                    const enc = new TextEncoder();
+                    function toB64(bytes) {
+                        let binary = '';
+                        for (let i = 0; i < bytes.length; i += 0x8000) {
+                            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+                        }
+                        return btoa(binary);
+                    }
+                    function fromB64Bytes(s) {
+                        const bin = atob(s);
+                        const arr = new Uint8Array(bin.length);
+                        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                        return arr;
+                    }
+                    const salt = saltB64 ? fromB64Bytes(saltB64) : self.crypto.getRandomValues(new Uint8Array(16));
+                    const passKey = await self.crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveBits']);
+                    const bits = await self.crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: iterations || ${DEFAULT_KDF_ITERATIONS}, hash: 'SHA-256' }, passKey, 256);
+                    self.postMessage({ ok: true, keyBytes: Array.from(new Uint8Array(bits)), saltB64: toB64(salt) });
+                } catch (error) {
+                    self.postMessage({ ok: false, error: error && error.message ? error.message : String(error) });
+                }
+            };
+        `;
+        const url = URL.createObjectURL(new Blob([workerScript], { type: 'application/javascript' }));
+        try {
+            const result = await new Promise((resolve, reject) => {
+                const worker = new Worker(url);
+                worker.onmessage = (event) => {
+                    worker.terminate();
+                    event.data && event.data.ok ? resolve(event.data) : reject(new Error(event.data && event.data.error ? event.data.error : 'Worker derivation failed'));
+                };
+                worker.onerror = (event) => {
+                    worker.terminate();
+                    reject(new Error(event.message || 'Worker derivation failed'));
+                };
+                worker.postMessage({ passphrase, saltB64, iterations });
+            });
+            const keyBytes = new Uint8Array(result.keyBytes);
+            const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt','decrypt']);
+            return { key, salt: fromB64Bytes(result.saltB64) };
+        } finally {
+            URL.revokeObjectURL(url);
+        }
+    }
+
+    async function deriveMasterKeyFromPassphrase(passphrase, saltB64, iterations, reason) {
+        setKeyDerivationBusy(true, reason || 'Deriving encryption key...');
+        try {
+            try {
+                return await deriveKeyInWorker(passphrase, saltB64, iterations);
+            } catch(workerError) {
+                console.warn('Worker key derivation unavailable; falling back to main thread', workerError);
+                return await deriveKeyOnMainThread(passphrase, saltB64, iterations);
+            }
+        } finally {
+            setKeyDerivationBusy(false);
+        }
+    }
+
+    async function encryptWithMaster(obj, keyName){
+        if (!masterKey) throw new Error('Encrypted storage is locked');
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const enc = new TextEncoder();
+        const pt = enc.encode(JSON.stringify(obj));
+        const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: getAadForKey(keyName) }, masterKey, pt);
+        return { v:2, key: keyName, iv: toB64(iv), ct: toB64(ct) };
+    }
+
+    async function decryptBlobWithKey(blob, keyName, key){
+        if (!key) throw new Error('Encrypted storage is locked');
+        if (blob.key && blob.key !== keyName) throw new Error('Encrypted blob key mismatch');
+        const iv = fromB64Bytes(blob.iv);
+        const ctBuf = fromB64(blob.ct);
+        let plainBuf;
+        try {
+            plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv, additionalData: getAadForKey(keyName) }, key, ctBuf);
+        } catch(e) {
+            // v1.6 experimental blobs did not use associated data; allow one migration path.
+            if (blob.v && blob.v >= 2) throw e;
+            plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ctBuf);
+        }
+        const dec = new TextDecoder();
+        return JSON.parse(dec.decode(new Uint8Array(plainBuf)));
+    }
+
+    async function decryptWithMaster(blob, keyName){
+        return decryptBlobWithKey(blob, keyName, masterKey);
+    }
+
+    async function setEncryptedItem(key, obj){
+        if (encryptionEnabled) {
+            if (!masterKey) throw new Error('Unlock encrypted storage before saving ' + key);
+            const cipher = await encryptWithMaster(obj, key);
+            localStorage.setItem(getEncryptedStorageKey(key), JSON.stringify(cipher));
+            try { localStorage.removeItem(key); } catch(e) {}
+            return true;
+        }
+        if (key === VERIFY_KEY) return false;
+        localStorage.setItem(key, JSON.stringify(obj));
+        return true;
+    }
+
+    async function getEncryptedItem(key, fallback){
+        if (encryptionEnabled){
+            const raw = localStorage.getItem(getEncryptedStorageKey(key));
+            if (!raw || !masterKey) return fallback;
+            return decryptWithMaster(JSON.parse(raw), key);
+        }
+        return readJsonKey(key, fallback);
+    }
+
+    function removeStoredItem(key) {
+        try { localStorage.removeItem(key); } catch(e) {}
+        try { localStorage.removeItem(getEncryptedStorageKey(key)); } catch(e) {}
+    }
+
+    async function verifyMasterKeyWithCurrentStorage(candidateKey) {
+        const verifyRaw = localStorage.getItem(getEncryptedStorageKey(VERIFY_KEY));
+        if (verifyRaw) {
+            const verify = await decryptBlobWithKey(JSON.parse(verifyRaw), VERIFY_KEY, candidateKey);
+            return !!(verify && verify.ok === true);
+        }
+        for (const key of ENCRYPTED_DATA_KEYS) {
+            const raw = localStorage.getItem(getEncryptedStorageKey(key));
+            if (raw) {
+                await decryptBlobWithKey(JSON.parse(raw), key, candidateKey);
+                return true;
+            }
+        }
+        return true;
+    }
+
+    async function migratePlaintextKeyToEncrypted(key) {
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const obj = safeParseJSON(raw, null);
+        if (obj === null) throw new Error('Could not parse plaintext ' + key);
+        await setEncryptedItem(key, obj);
+        const migrated = await getEncryptedItem(key, null);
+        if (JSON.stringify(migrated) !== JSON.stringify(obj)) throw new Error('Migration verification failed for ' + key);
+        localStorage.removeItem(key);
+    }
+
+    async function enableEncryptionWithPassphrase(passphrase, iterations){
+        const res = await deriveMasterKeyFromPassphrase(passphrase, null, iterations || DEFAULT_KDF_ITERATIONS, 'Creating encryption key...');
+        const meta = { v:2, salt: toB64(res.salt), iter: iterations || DEFAULT_KDF_ITERATIONS, createdAt: new Date().toISOString() };
+        try {
+            localStorage.setItem(ENC_META_KEY, JSON.stringify(meta));
+            encryptionEnabled = true;
+            masterKey = res.key;
+            await setEncryptedItem(VERIFY_KEY, { ok: true, createdAt: meta.createdAt, appVersion: APP_VERSION });
+            for (const key of ENCRYPTED_DATA_KEYS) {
+                await migratePlaintextKeyToEncrypted(key);
+            }
+        } catch(e) {
+            getEncryptedBlobKeys().forEach(key => {
+                try { localStorage.removeItem(key); } catch(removeError) {}
+            });
+            try { localStorage.removeItem(ENC_META_KEY); } catch(removeError) {}
+            masterKey = null;
+            encryptionEnabled = false;
+            throw e;
+        }
+    }
+
+    async function unlockEncryption(passphrase){
+        const meta = readJsonKey(ENC_META_KEY, null);
+        if (!meta) return false;
+        try {
+            const res = await deriveMasterKeyFromPassphrase(passphrase, meta.salt, meta.iter, 'Unlocking encrypted storage...');
+            await verifyMasterKeyWithCurrentStorage(res.key);
+            masterKey = res.key;
+            encryptionEnabled = true;
+            return true;
+        } catch(e){
+            masterKey = null;
+            console.warn('unlock failed', e);
+            return false;
+        }
+    }
+
+    function lockEncryption(){
+        masterKey = null;
+        history = [];
+        try { renderHistory(); } catch(e) {}
+        try { updateSttUI(); } catch(e) {}
+    }
+
+    // Check if enc_meta present at startup
+    try { encryptionEnabled = !!localStorage.getItem(ENC_META_KEY); } catch(e){ encryptionEnabled = false; }
+    loadPrivacyPrefs();
+
+    const plaintextSettings = readJsonKey('ttsSettings', {});
+    settings = await getEncryptedItem('ttsSettings', encryptionEnabled ? {} : plaintextSettings);
     if (typeof settings !== 'object' || settings === null) settings = {};
-
-    // Initialize privateMode from saved settings
-    try { privateMode = !!settings.privateMode; } catch(e) { privateMode = false; }
-    // Initialize voiceLocalOnly from saved settings
+    if (!localStorage.getItem(PLAINTEXT_PREFS_KEY) && (settings.privateMode !== undefined || settings.wipeOnExit !== undefined)) {
+        privateMode = !!settings.privateMode;
+        wipeOnExit = !!settings.wipeOnExit;
+        persistPrivacyPrefs();
+    }
     try { voiceLocalOnly = !!settings.voiceLocalOnly; } catch(e) { voiceLocalOnly = false; }
-    // Initialize wipeOnExit from saved settings
-    try { wipeOnExit = !!settings.wipeOnExit; } catch(e) { wipeOnExit = false; }
+
+    history = privateMode ? [] : await getEncryptedItem('ttsHistory', encryptionEnabled ? [] : readJsonKey('ttsHistory', []));
+    if (!Array.isArray(history)) history = [];
+    persistedSttState = await getEncryptedItem('sttState', encryptionEnabled ? {} : readJsonKey('sttState', {}));
 
     function $(id) {
         return document.getElementById(id);
@@ -769,6 +990,11 @@
     const encResetBtn = $('encResetBtn');
     const encActionBtn = $('encActionBtn');
     const encConfirmRow = $('encConfirmRow');
+    const encStatusMsg = $('encStatusMsg');
+    const exportBackupBtn = $('exportBackupBtn');
+    const importBackupBtn = $('importBackupBtn');
+    const backupImportInput = $('backupImportInput');
+    const wipeNowBtn = $('wipeNowBtn');
 
     function updateEncStatusUI(){
         if (!encStatusEl) return;
@@ -795,7 +1021,38 @@
         if (encPassInput) encPassInput.focus();
     }
 
-    function closeEncModal(){ if (encModalBackdrop) encModalBackdrop.classList.remove('open'); }
+    function closeEncModal(){
+        if (encModalBackdrop) encModalBackdrop.classList.remove('open');
+        if (encPassInput) encPassInput.value = '';
+        if (encPassConfirm) encPassConfirm.value = '';
+    }
+
+    function applySettingsToControls() {
+        if (settings.rate && rateSlider) rateSlider.value = settings.rate;
+        if (settings.pitch && pitchSlider) pitchSlider.value = settings.pitch;
+        if (settings.vol && volSlider) volSlider.value = settings.vol;
+        const pauseLinesEl = $('pauseLines');
+        if (pauseLinesEl) pauseLinesEl.checked = settings.pauseLines !== false;
+        if (localOnlyToggle) localOnlyToggle.checked = !!voiceLocalOnly;
+        if (privateModeToggle) privateModeToggle.checked = !!privateMode;
+        if (wipeOnExitToggle) wipeOnExitToggle.checked = !!wipeOnExit;
+        try { updateSliderLabels(); } catch(e) {}
+        try { filterVoices(); } catch(e) {}
+    }
+
+    async function reloadUnlockedStateFromStorage() {
+        settings = await getEncryptedItem('ttsSettings', {});
+        if (typeof settings !== 'object' || settings === null) settings = {};
+        voiceLocalOnly = !!settings.voiceLocalOnly;
+        history = privateMode ? [] : await getEncryptedItem('ttsHistory', []);
+        if (!Array.isArray(history)) history = [];
+        persistedSttState = await getEncryptedItem('sttState', {});
+        sttEnabled = !!persistedSttState.enabled;
+        sttOfflineMode = !!persistedSttState.offlineMode;
+        applySettingsToControls();
+        renderHistory();
+        updateSttUI();
+    }
 
     if (encStatusEl) {
         encStatusEl.addEventListener('click', () => {
@@ -803,7 +1060,7 @@
             else if (encryptionEnabled && !masterKey) openEncModal('unlock');
             else { // locked state - allow lock by clicking
                 const ok = confirm('Lock encryption for this session? You will need to enter your passphrase to unlock later.');
-                if (ok) { lockEncryption(); updateEncStatusUI(); }
+            if (ok) { lockEncryption(); updateEncStatusUI(); }
             }
         });
     }
@@ -834,9 +1091,13 @@
         // Determine mode: enable (confirm visible) or unlock
         if (encConfirmRow && encConfirmRow.style.display !== 'none'){
             const pass2 = encPassConfirm ? encPassConfirm.value : '';
+            if (pass.length < 8) { alert('Use at least 8 characters for the passphrase.'); return; }
             if (pass !== pass2) { alert('Passphrases do not match'); return; }
             try {
                 await enableEncryptionWithPassphrase(pass);
+                await saveSettings();
+                await saveHistory();
+                await saveSttState();
                 closeEncModal(); updateEncStatusUI(); alert('Encryption enabled and existing data migrated.');
             } catch(e){ console.error(e); alert('Failed to enable encryption'); }
         } else {
@@ -844,6 +1105,7 @@
             try {
                 const ok = await unlockEncryption(pass);
                 if (!ok) { alert('Incorrect passphrase'); return; }
+                await reloadUnlockedStateFromStorage();
                 closeEncModal(); updateEncStatusUI(); alert('Unlocked encrypted storage for this session.');
             } catch(e){ console.error(e); alert('Failed to unlock'); }
         }
@@ -1152,6 +1414,7 @@
 
     async function saveSettings() {
         try {
+            persistPrivacyPrefs();
             const voiceIdx = voiceSelect ? voiceSelect.value : 0;
             const voice = voices[voiceIdx];
             const pauseLinesEl = $('pauseLines');
@@ -1169,6 +1432,8 @@
             await setEncryptedItem('ttsSettings', settings);
         } catch(e) {
             console.error('Error saving settings:', e);
+            const statusTxtEl = $('statusTxt');
+            if (encryptionEnabled && !masterKey && statusTxtEl) statusTxtEl.textContent = 'Unlock storage to save settings';
         }
     }
 
@@ -1264,13 +1529,19 @@
     }
     updateStats();
 
-    // Wire up Private Mode toggle (do not store full transcripts when enabled)
+    // Wire up Private Mode toggle (do not persist history when enabled)
     const privateModeToggle = $('privateModeToggle');
     if (privateModeToggle) {
         privateModeToggle.checked = !!privateMode;
-        privateModeToggle.addEventListener('change', () => {
+        privateModeToggle.addEventListener('change', async () => {
             privateMode = privateModeToggle.checked;
-            saveSettings();
+            persistPrivacyPrefs();
+            if (privateMode) {
+                history = [];
+                removeStoredItem('ttsHistory');
+                renderHistory();
+            }
+            await saveSettings();
         });
     }
 
@@ -1287,8 +1558,8 @@
     // Clear sensitive data on unload/pagehide if enabled
     function handleWipeOnExit() {
         if (wipeOnExit) {
-            // silent clear — do not alert during unload
-            clearSensitiveData(true);
+            // Synchronous only: browsers do not reliably wait for async work during unload.
+            wipeSensitiveStorageSync(true);
         }
     }
 
@@ -1301,13 +1572,14 @@
         wipeOnExitToggle.addEventListener('change', () => {
             const enabling = !!wipeOnExitToggle.checked;
             if (enabling) {
-                const ok = confirm('Enable Wipe on exit? This will remove stored history and settings when you close the page. Export any data you need first.\n\nEnable Wipe on exit?');
+                const ok = confirm('Enable Wipe on exit? This best-effort browser feature removes stored history, settings, STT state, and encrypted blobs when the page closes. Crashes, mobile app kills, browser restore, or back-forward cache can retain data.\n\nExport any data you need first. Enable Wipe on exit?');
                 if (!ok) {
                     wipeOnExitToggle.checked = false;
                     return;
                 }
             }
             wipeOnExit = enabling;
+            persistPrivacyPrefs();
             saveSettings();
         });
     }
@@ -1968,8 +2240,8 @@
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isListening = false;
-    let sttEnabled = false;
-    let sttOfflineMode = false;
+    let sttEnabled = !!persistedSttState.enabled;
+    let sttOfflineMode = !!persistedSttState.offlineMode;
     
     const micBtn = $('micBtn');
     const sttStatus = $('sttStatus');
@@ -1984,13 +2256,6 @@
     const sttModeText = $('sttModeText');
     const sttShowOfflineGuide = $('sttShowOfflineGuide');
     
-    // Load STT enabled state from localStorage
-    try {
-        const sttState = JSON.parse(localStorage.getItem('sttState') || '{}');
-        sttEnabled = sttState.enabled || false;
-        sttOfflineMode = sttState.offlineMode || false;
-    } catch(e) {}
-    
     function updateSttUI() {
         const sttBadge = $('sttBadge');
         
@@ -2004,8 +2269,8 @@
                 if (sttOfflineMode) {
                     sttBadge.style.background = '#dcfce7';
                     sttBadge.style.color = '#166534';
-                    sttBadge.textContent = 'STT Local';
-                    sttBadge.title = 'Voice Input enabled with offline mode (local processing)';
+                    sttBadge.textContent = 'STT Offline Selected';
+                    sttBadge.title = 'User selected offline mode; browser processing path cannot be verified by this app';
                 } else {
                     sttBadge.style.background = '#fef3c7';
                     sttBadge.style.color = '#92400e';
@@ -2019,11 +2284,11 @@
                 if (sttOfflineMode) {
                     sttModeIndicator.style.background = '#f0fdf4';
                     sttModeIndicator.style.borderColor = '#86efac';
-                    sttModeText.innerHTML = '✅ Offline mode enabled - voice processed locally on your device.';
+                    sttModeText.innerHTML = '✅ Offline mode selected. Confirm your device/browser is using on-device speech recognition; this app cannot verify it.';
                 } else {
                     sttModeIndicator.style.background = '#fefce8';
                     sttModeIndicator.style.borderColor = '#fde047';
-                    sttModeText.innerHTML = '⚠️ Voice may be processed in cloud. <a href="#" id="sttShowOfflineGuide" style="color:#0066cc;">Enable offline mode</a> for local processing.';
+                    sttModeText.innerHTML = '⚠️ Voice may be processed in cloud. <a href="#" id="sttShowOfflineGuide" style="color:#0066cc;">Configure device offline mode</a> to reduce cloud processing.';
                     
                     // Re-attach click handler
                     const newGuideLink = $('sttShowOfflineGuide');
@@ -2050,22 +2315,29 @@
         }
     }
     
-    function enableStt(offlineMode) {
-        sttEnabled = true;
-        sttOfflineMode = offlineMode;
+    async function saveSttState() {
         try {
-            localStorage.setItem('sttState', JSON.stringify({ enabled: true, offlineMode: offlineMode }));
-        } catch(e) {}
+            await setEncryptedItem('sttState', { enabled: !!sttEnabled, offlineMode: !!sttOfflineMode });
+        } catch(e) {
+            console.error('Error saving voice input state:', e);
+            if (sttStatus && encryptionEnabled && !masterKey) {
+                sttStatus.textContent = 'Voice input changed for this session. Unlock storage to save the setting.';
+            }
+        }
+    }
+
+    async function enableStt(offlineMode) {
+        sttEnabled = true;
+        sttOfflineMode = !!offlineMode;
+        await saveSttState();
         updateSttUI();
     }
     
-    function disableStt() {
+    async function disableStt() {
         sttEnabled = false;
         sttOfflineMode = false;
         stopListening();
-        try {
-            localStorage.setItem('sttState', JSON.stringify({ enabled: false, offlineMode: false }));
-        } catch(e) {}
+        await saveSttState();
         updateSttUI();
     }
     
@@ -2716,21 +2988,37 @@
     }
 
     // === HISTORY ===
-    function addHistory(text) {
+    async function saveHistory() {
+        if (privateMode) {
+            history = [];
+            removeStoredItem('ttsHistory');
+            return;
+        }
+        await setEncryptedItem('ttsHistory', history);
+    }
+
+    async function addHistory(text) {
         if (!text) return;
+        if (privateMode) {
+            history = [];
+            removeStoredItem('ttsHistory');
+            renderHistory();
+            return;
+        }
 
         const preview = text.substring(0, 120);
-        const item = { text: preview, time: new Date().toISOString() };
-        if (!privateMode) {
-            item.full = text;
-        }
+        const item = { text: preview, full: text, time: new Date().toISOString() };
 
         history.unshift(item);
         if (history.length > 15) history.pop();
 
         try {
-            localStorage.setItem('ttsHistory', JSON.stringify(history));
-        } catch (e) {}
+            await saveHistory();
+        } catch (e) {
+            console.error('Error saving history:', e);
+            const statusTxtEl = $('statusTxt');
+            if (encryptionEnabled && !masterKey && statusTxtEl) statusTxtEl.textContent = 'Unlock storage to save history';
+        }
 
         renderHistory();
     }
@@ -2739,6 +3027,11 @@
         const histList = $('histList');
         if (!histList) return;
         
+        if (privateMode) {
+            histList.innerHTML = '<div class="empty">Private Mode is on; history is not saved</div>';
+            return;
+        }
+
         if (!history || history.length === 0) { 
             histList.innerHTML = '<div class="empty">No history</div>'; 
             return; 
@@ -2776,13 +3069,13 @@
         });
         
         histList.querySelectorAll('.hist-del').forEach(btn => {
-            btn.addEventListener('click', e => {
+            btn.addEventListener('click', async e => {
                 e.stopPropagation();
                 const idx = parseInt(btn.dataset.d);
                 if (idx >= 0 && idx < history.length) {
                     history.splice(idx, 1);
                     try { 
-                        localStorage.setItem('ttsHistory', JSON.stringify(history)); 
+                        await saveHistory();
                     } catch(err) {}
                     renderHistory();
                 }
@@ -2808,14 +3101,14 @@
     // CLEAR ALL HISTORY
     const clearHistBtn = $('clearHistBtn');
     if (clearHistBtn) {
-        clearHistBtn.addEventListener('click', function(e) {
+        clearHistBtn.addEventListener('click', async function(e) {
             e.preventDefault();
             e.stopPropagation();
             
             if (confirm('Clear all history?')) {
                 history = [];
                 try { 
-                    localStorage.setItem('ttsHistory', '[]'); 
+                    await saveHistory();
                 } catch(err) {}
                 renderHistory();
                 
@@ -2882,45 +3175,201 @@
         }
     });
     
+    function getEncryptedBlobKeys() {
+        const keys = [];
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (typeof k === 'string' && k.startsWith('enc:')) keys.push(k);
+            }
+        } catch(e) {}
+        return keys;
+    }
+
+    function wipeSensitiveStorageSync(preservePrefs = true) {
+        try {
+            ENCRYPTED_DATA_KEYS.forEach(key => {
+                localStorage.removeItem(key);
+                localStorage.removeItem(getEncryptedStorageKey(key));
+            });
+            localStorage.removeItem(getEncryptedStorageKey(VERIFY_KEY));
+            getEncryptedBlobKeys().forEach(key => localStorage.removeItem(key));
+            localStorage.removeItem(ENC_META_KEY);
+            if (!preservePrefs) localStorage.removeItem(PLAINTEXT_PREFS_KEY);
+        } catch(e) {
+            console.warn('Synchronous wipe failed', e);
+        }
+    }
+
+    function downloadJson(filename, obj) {
+        const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    function buildBackupBundle() {
+        const privacyPrefs = readJsonKey(PLAINTEXT_PREFS_KEY, {
+            privateMode: !!privateMode,
+            wipeOnExit: !!wipeOnExit
+        });
+        const bundle = {
+            format: BACKUP_FORMAT,
+            version: BACKUP_VERSION,
+            appVersion: APP_VERSION,
+            createdAt: new Date().toISOString(),
+            encrypted: !!encryptionEnabled,
+            privacyPrefs
+        };
+
+        if (encryptionEnabled) {
+            const encryptedBlobs = {};
+            getEncryptedBlobKeys().forEach(key => {
+                encryptedBlobs[key] = readJsonKey(key, null);
+            });
+            bundle.enc_meta = readJsonKey(ENC_META_KEY, null);
+            bundle.encryptedBlobs = encryptedBlobs;
+        } else {
+            bundle.plaintext = {
+                ttsSettings: settings || readJsonKey('ttsSettings', {}),
+                ttsHistory: privateMode ? [] : (history || readJsonKey('ttsHistory', [])),
+                sttState: { enabled: !!sttEnabled, offlineMode: !!sttOfflineMode }
+            };
+        }
+        return bundle;
+    }
+
+    function validateBackupBundle(bundle) {
+        if (!bundle || bundle.format !== BACKUP_FORMAT) throw new Error('Not a Local TTS backup file');
+        if (bundle.version !== BACKUP_VERSION) throw new Error('Unsupported backup version');
+        if (bundle.encrypted) {
+            if (!bundle.enc_meta || !bundle.encryptedBlobs || typeof bundle.encryptedBlobs !== 'object') {
+                throw new Error('Encrypted backup is missing encryption metadata or blobs');
+            }
+        } else if (!bundle.plaintext || typeof bundle.plaintext !== 'object') {
+            throw new Error('Plaintext backup is missing data');
+        }
+    }
+
+    async function verifyBackupPassphrase(bundle, passphrase) {
+        const meta = bundle.enc_meta;
+        const res = await deriveMasterKeyFromPassphrase(passphrase, meta.salt, meta.iter, 'Validating backup passphrase...');
+        const blobs = bundle.encryptedBlobs || {};
+        const verifyBlob = blobs[getEncryptedStorageKey(VERIFY_KEY)];
+        if (verifyBlob) {
+            const verify = await decryptBlobWithKey(verifyBlob, VERIFY_KEY, res.key);
+            return !!(verify && verify.ok);
+        }
+        const firstKey = Object.keys(blobs).find(key => key.startsWith('enc:'));
+        if (!firstKey) return true;
+        await decryptBlobWithKey(blobs[firstKey], firstKey.slice(4), res.key);
+        return true;
+    }
+
+    async function exportBackup() {
+        try {
+            if (!encryptionEnabled) {
+                const ok = confirm('Encryption is off. This backup will contain plaintext settings and history. Continue?');
+                if (!ok) return;
+            }
+            const bundle = buildBackupBundle();
+            const date = new Date().toISOString().slice(0, 10);
+            downloadJson('local-tts-backup-' + date + '.json', bundle);
+        } catch(e) {
+            console.error('Export failed', e);
+            alert('Backup export failed: ' + e.message);
+        }
+    }
+
+    async function importBackupFile(file) {
+        try {
+            const text = await file.text();
+            const bundle = JSON.parse(text);
+            validateBackupBundle(bundle);
+
+            let importPassphrase = null;
+            if (bundle.encrypted) {
+                importPassphrase = prompt('Enter the backup passphrase to validate this encrypted backup before import:');
+                if (!importPassphrase) return;
+                await verifyBackupPassphrase(bundle, importPassphrase);
+            } else {
+                const okPlain = confirm('This is a plaintext backup. Importing it will disable storage encryption unless you enable encryption again after import. Continue?');
+                if (!okPlain) return;
+            }
+
+            const ok = confirm('Import backup and replace current stored history, settings, STT state, and encrypted data? This cannot be undone.');
+            if (!ok) return;
+
+            wipeSensitiveStorageSync(false);
+            if (bundle.privacyPrefs) {
+                localStorage.setItem(PLAINTEXT_PREFS_KEY, JSON.stringify({
+                    privateMode: !!bundle.privacyPrefs.privateMode,
+                    wipeOnExit: !!bundle.privacyPrefs.wipeOnExit
+                }));
+            }
+
+            if (bundle.encrypted) {
+                localStorage.setItem(ENC_META_KEY, JSON.stringify(bundle.enc_meta));
+                Object.keys(bundle.encryptedBlobs).forEach(key => {
+                    if (key.startsWith('enc:')) localStorage.setItem(key, JSON.stringify(bundle.encryptedBlobs[key]));
+                });
+                encryptionEnabled = true;
+                masterKey = null;
+                await unlockEncryption(importPassphrase);
+                loadPrivacyPrefs();
+                await reloadUnlockedStateFromStorage();
+            } else {
+                encryptionEnabled = false;
+                masterKey = null;
+                if (bundle.plaintext.ttsSettings) await setEncryptedItem('ttsSettings', bundle.plaintext.ttsSettings);
+                if (Array.isArray(bundle.plaintext.ttsHistory)) await setEncryptedItem('ttsHistory', bundle.plaintext.ttsHistory);
+                if (bundle.plaintext.sttState) await setEncryptedItem('sttState', bundle.plaintext.sttState);
+                loadPrivacyPrefs();
+                settings = readJsonKey('ttsSettings', {});
+                voiceLocalOnly = !!settings.voiceLocalOnly;
+                history = privateMode ? [] : readJsonKey('ttsHistory', []);
+                persistedSttState = readJsonKey('sttState', {});
+                sttEnabled = !!persistedSttState.enabled;
+                sttOfflineMode = !!persistedSttState.offlineMode;
+                applySettingsToControls();
+                renderHistory();
+                updateSttUI();
+            }
+            updateEncStatusUI();
+            alert('Backup imported.');
+        } catch(e) {
+            console.error('Import failed', e);
+            alert('Backup import failed: ' + e.message);
+        } finally {
+            if (backupImportInput) backupImportInput.value = '';
+        }
+    }
+
     // === SENSITIVE DATA CLEAR (reusable) ===
     async function clearSensitiveData(silent = false) {
         try {
-            // Remove known plaintext keys
-            localStorage.removeItem('ttsHistory');
-            localStorage.removeItem('sttState');
-            localStorage.removeItem('ttsSettings');
-
-            // Remove any encrypted blobs prefixed with `enc:` (generic removal)
-            try {
-                const keysToRemove = [];
-                for (let i = 0; i < localStorage.length; i++) {
-                    const k = localStorage.key(i);
-                    if (typeof k === 'string' && k.startsWith('enc:')) keysToRemove.push(k);
-                }
-                for (const k of keysToRemove) localStorage.removeItem(k);
-            } catch (e) {
-                // ignore storage iteration errors
-            }
-
-            // Remove encryption metadata to fully reset encryption
-            try { localStorage.removeItem(ENC_META_KEY); } catch (e) {}
-
-            // Clear in-memory crypto key and flags so encryption won't be used
-            try { masterKey = null; encryptionEnabled = false; } catch (e) {}
-
-            // Clear in-memory copies and reset minimal settings
+            wipeSensitiveStorageSync(true);
+            masterKey = null;
+            encryptionEnabled = false;
             history = [];
-            settings = { privateMode: !!privateMode, voiceLocalOnly: !!voiceLocalOnly, wipeOnExit: !!wipeOnExit };
-
-            // Persist minimal settings (will write plaintext because encryptionEnabled cleared)
-            await saveSettings();
-
-            // Update UI
+            settings = {};
+            voiceLocalOnly = false;
+            sttEnabled = false;
+            sttOfflineMode = false;
+            try { stopListening(); } catch(e) {}
+            persistPrivacyPrefs();
             try { renderHistory(); } catch(e) {}
+            try { updateEncStatusUI(); } catch(e) {}
+            try { updateSttUI(); } catch(e) {}
             if (textInput) textInput.innerHTML = '';
             if (reader) reader.innerHTML = '<span class="empty">Enter text in Edit tab</span>';
             updateStats();
-            if (!silent) alert('Sensitive data and encryption metadata cleared.');
+            if (!silent) alert('Sensitive data, settings, STT state, and encryption metadata cleared.');
         } catch (e) {
             console.error('Error clearing sensitive data', e);
             if (!silent) alert('Error clearing sensitive data (see console)');
@@ -2930,9 +3379,29 @@
     const clearSensitiveBtn = $('clearSensitiveBtn');
     if (clearSensitiveBtn) {
         clearSensitiveBtn.addEventListener('click', () => {
-            const ok = confirm('This will permanently remove stored history and settings (except current Private Mode state). Proceed?');
+            const ok = confirm('This will permanently remove stored history, settings, STT state, encrypted blobs, and encryption metadata. Private Mode and Wipe-on-exit preferences are kept. Proceed?');
             if (!ok) return;
             clearSensitiveData(false);
+        });
+    }
+
+    if (wipeNowBtn) {
+        wipeNowBtn.addEventListener('click', () => {
+            const ok = confirm('Wipe stored sensitive data now? This removes history, settings, STT state, encrypted blobs, and encryption metadata immediately.');
+            if (!ok) return;
+            clearSensitiveData(false);
+        });
+    }
+
+    if (exportBackupBtn) {
+        exportBackupBtn.addEventListener('click', exportBackup);
+    }
+
+    if (importBackupBtn && backupImportInput) {
+        importBackupBtn.addEventListener('click', () => backupImportInput.click());
+        backupImportInput.addEventListener('change', e => {
+            const file = e.target && e.target.files ? e.target.files[0] : null;
+            if (file) importBackupFile(file);
         });
     }
 
