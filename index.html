@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Local-Text-to-Speech & Voice Input by Sid</title>
+    <title>Private Voice Reader by Sid</title>
     <!--
         CSP Note (single-file releases):
         To use a strict Content-Security-Policy without `unsafe-inline` for this single-file bundle,
         compute the SHA-256 hash of the final inline script content and include it in the header:
 
         Example header (nginx):
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-/tm/h8Vg9vXKRkBFHHs/WI8VL0cGV7IiMChDYaSWue0='; style-src 'self' 'sha256-6NR6mQ4GyJsW6HG20UBeKQjQSH2024RAIjJDXEPVLBU='; worker-src 'self' blob:; img-src 'self' data:; connect-src 'self';";
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-YlwXUiaiQqprdpERYLNSZjssxHYzSUSLfG4L9XPtlZ4='; style-src 'self' 'sha256-6NR6mQ4GyJsW6HG20UBeKQjQSH2024RAIjJDXEPVLBU='; worker-src 'self' blob:; img-src 'self' data:; connect-src 'self';";
 
         Current frozen block hashes:
         style-src:  sha256-6NR6mQ4GyJsW6HG20UBeKQjQSH2024RAIjJDXEPVLBU=
         sanitizer:  sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=
-        app script: sha256-/tm/h8Vg9vXKRkBFHHs/WI8VL0cGV7IiMChDYaSWue0=
+        app script: sha256-YlwXUiaiQqprdpERYLNSZjssxHYzSUSLfG4L9XPtlZ4=
 
         Any change to the inline style block, sanitizer script block, or app script block
         requires recomputing the matching hash.
@@ -348,9 +348,9 @@
 <body>
     <div class="fixed-header">
         <div class="header-row">
-            <div class="header-title">🔊 Local-Text-to-Speech <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted)">by Sid</span></div>
+            <div class="header-title">🔊 Private Voice Reader <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted)">by Sid</span></div>
             <div class="badges">
-                <span class="badge badge-green" title="Text-to-Speech is 100% local">TTS 100% Local</span>
+                <span class="badge badge-green" title="Text-to-Speech is 100% local">Voice Reading 100% Local</span>
                 <span class="badge" id="sttBadge" style="background:#fef3c7;color:#92400e;" title="Voice Input disabled by default for privacy">STT Off</span>
                                 <span class="badge badge-blue" id="platform">-</span>
                                 <span class="badge" id="encStatus" title="Encryption status">🔒 Locked</span>
@@ -495,7 +495,7 @@
                                 Voice Input uses your browser's speech recognition, which <b>may send your voice to cloud servers</b> (Google, Apple, or Microsoft) unless you enable offline mode in your device settings.
                             </p>
                             <p style="font-size:0.75rem;color:#7f1d1d;margin-bottom:12px;">
-                                This is different from Text-to-Speech which is <b>100% local</b>.
+                                This is different from Private Voice Reader's text-to-speech, which is <b>100% local</b>.
                             </p>
                             
                             <details style="margin-bottom:12px;">
@@ -693,7 +693,8 @@
 
     // --- Encryption / Web Crypto helpers (master-key approach) ---
     const APP_VERSION = 'v1.6-production';
-    const BACKUP_FORMAT = 'local-tts-backup';
+    const BACKUP_FORMAT = 'private-voice-reader-backup';
+    const LEGACY_BACKUP_FORMAT = 'local-tts-backup';
     const BACKUP_VERSION = 1;
     const DEFAULT_KDF_ITERATIONS = 150000;
     const ENC_META_KEY = 'enc_meta';
@@ -2887,7 +2888,7 @@
     if (sampleBtn) {
         sampleBtn.addEventListener('click', () => {
             if (textInput) {
-                textInput.innerHTML = `<h2>Welcome to Text-to-Speech</h2>
+                textInput.innerHTML = `<h2>Welcome to Private Voice Reader</h2>
 <p>This app now supports <strong>rich text formatting</strong>! You can paste content from:</p>
 <ul>
 <li><strong>Microsoft Word</strong> - formatting preserved</li>
@@ -3334,7 +3335,7 @@
     }
 
     function validateBackupBundle(bundle) {
-        if (!bundle || bundle.format !== BACKUP_FORMAT) throw new Error('Not a Local TTS backup file');
+        if (!bundle || (bundle.format !== BACKUP_FORMAT && bundle.format !== LEGACY_BACKUP_FORMAT)) throw new Error('Not a Private Voice Reader backup file');
         if (bundle.version !== BACKUP_VERSION) throw new Error('Unsupported backup version');
         if (bundle.encrypted) {
             if (!bundle.enc_meta || !bundle.encryptedBlobs || typeof bundle.encryptedBlobs !== 'object') {
@@ -3368,7 +3369,7 @@
             }
             const bundle = buildBackupBundle();
             const date = new Date().toISOString().slice(0, 10);
-            downloadJson('local-tts-backup-' + date + '.json', bundle);
+            downloadJson('private-voice-reader-backup-' + date + '.json', bundle);
         } catch(e) {
             console.error('Export failed', e);
             alert('Backup export failed: ' + e.message);
