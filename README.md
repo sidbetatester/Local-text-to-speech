@@ -355,14 +355,14 @@ Privacy-first, single-file browser TTS + optional local STT (experimental).
 - Current frozen hashes for `v1.6-experimental/index.html`:
 
 ```text
-style-src  'sha256-XFT83fuY6sCyMCg4Q/fabrwE61X8GKp+2KVxDrQL2Dg='
+style-src  'sha256-6NR6mQ4GyJsW6HG20UBeKQjQSH2024RAIjJDXEPVLBU='
 script-src 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-/tm/h8Vg9vXKRkBFHHs/WI8VL0cGV7IiMChDYaSWue0='
 ```
 
 Example header:
 
 ```text
-Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-/tm/h8Vg9vXKRkBFHHs/WI8VL0cGV7IiMChDYaSWue0='; style-src 'self' 'sha256-XFT83fuY6sCyMCg4Q/fabrwE61X8GKp+2KVxDrQL2Dg='; worker-src 'self' blob:; img-src 'self' data:; connect-src 'self';
+Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-/hx6zJYYeCi/3TL4znAxcCoNRdrudBla1pZwG1Fe3xw=' 'sha256-/tm/h8Vg9vXKRkBFHHs/WI8VL0cGV7IiMChDYaSWue0='; style-src 'self' 'sha256-6NR6mQ4GyJsW6HG20UBeKQjQSH2024RAIjJDXEPVLBU='; worker-src 'self' blob:; img-src 'self' data:; connect-src 'self';
 ```
 
 Any change inside the style block or either script block requires recomputing the matching hash.
