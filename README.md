@@ -1,4 +1,4 @@
-# 🔊 Private Voice Reader by Sid
+# 🔊 Private Voice Reader
 
 Private Voice Reader is a privacy-focused browser app for local text-to-speech, reader mode, and optional voice input.
 
